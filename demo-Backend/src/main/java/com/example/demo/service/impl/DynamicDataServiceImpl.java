@@ -27,7 +27,7 @@ public class DynamicDataServiceImpl implements DynamicDataService {
     private static final Logger logger = LoggerFactory.getLogger(DynamicDataServiceImpl.class);
 
     private Connection getConnection(int templateId) throws SQLException {
-        ReportTemplate template = reportTemplateMapper.getReportTemplateById(templateId);
+        ReportTemplate template = reportTemplateService.getReportTemplateById(templateId);
         if (template == null) {
             throw new RuntimeException("报表模板不存在");
         }
@@ -50,7 +50,7 @@ public class DynamicDataServiceImpl implements DynamicDataService {
     @Override
     public Result addData(int templateId, Map<String, Object> data) {
         try {
-            ReportTemplate template = reportTemplateMapper.getReportTemplateById(templateId);
+            ReportTemplate template = reportTemplateService.getReportTemplateById(templateId);
             validateIdentifier(template.getTargetTable());
             data.keySet().forEach(this::validateIdentifier);
 
@@ -78,27 +78,29 @@ public class DynamicDataServiceImpl implements DynamicDataService {
     public Result updateData(int templateId, Map<String, Object> data) {
         try {
             ReportTemplate template = reportTemplateService.getFullTemplate(templateId);
-            System.out.println("template: " + template);
 
-            // 检查模板是否存在及 targetTable、primaryKey 是否有效
-            if (template == null
-                    || template.getTargetTable() == null
-                    || template.getPrimaryKey() == null) { // 新增 primaryKey 为空校验
-                return Result.error("报表模板信息不完整：缺少 targetTable 或 primaryKey");
+            // 新增：打印关键信息以便调试
+            logger.info("更新数据，模板ID：{}，目标表：{}，主键：{}",
+                    templateId, template.getTargetTable(), template.getPrimaryKey());
+
+            // 校验目标表和主键是否存在（避免 null）
+            if (template.getTargetTable() == null || template.getPrimaryKey() == null) {
+                return Result.error("报表模板配置错误：缺少目标表或主键信息");
             }
 
             validateIdentifier(template.getTargetTable());
-            validateIdentifier(template.getPrimaryKey()); // 此时 primaryKey 已非 null
-            // 在验证前打印日志
-            System.out.println("Target Table: " + template.getTargetTable());
-            System.out.println("Primary Key: " + template.getPrimaryKey());
+            validateIdentifier(template.getPrimaryKey());
 
             if (!data.containsKey(template.getPrimaryKey())) {
+                // 新增：打印缺失的主键字段和数据内容
+                logger.warn("更新数据时缺失主键字段：{}，传入数据：{}",
+                        template.getPrimaryKey(), data);
                 return Result.error("缺失主键字段: " + template.getPrimaryKey());
             }
             Object pkValue = data.get(template.getPrimaryKey());
             System.out.println("pkValue: " + pkValue);
             System.out.println("解析出的主键：" + template.getPrimaryKey());
+            System.out.println("Target Table: " + template.getTargetTable());
 
             try (Connection conn = getConnection(templateId)) {
                 List<String> setClauses = data.keySet().stream()
@@ -123,6 +125,7 @@ public class DynamicDataServiceImpl implements DynamicDataService {
                 }
             }
         } catch (Exception e) {
+            logger.error("更新数据失败，模板ID：{}，错误：{}", templateId, e.getMessage(), e);
             return Result.error("更新失败: " + e.getMessage());
         }
     }
@@ -130,7 +133,7 @@ public class DynamicDataServiceImpl implements DynamicDataService {
     @Override
     public Result deleteData(int templateId, Object primaryKeyValue) {
         try {
-            ReportTemplate template = reportTemplateMapper.getReportTemplateById(templateId);
+            ReportTemplate template = reportTemplateService.getReportTemplateById(templateId);
             validateIdentifier(template.getTargetTable());
             validateIdentifier(template.getPrimaryKey());
 
@@ -152,7 +155,7 @@ public class DynamicDataServiceImpl implements DynamicDataService {
     @Override
     public List<Map<String, Object>> queryData(int templateId) {
         List<Map<String, Object>> resultList = new ArrayList<>();
-        ReportTemplate template = reportTemplateMapper.getReportTemplateById(templateId);
+        ReportTemplate template = reportTemplateService.getReportTemplateById(templateId);
 
         if (template == null) {
             throw new RuntimeException("报表模板不存在");
@@ -193,7 +196,7 @@ public class DynamicDataServiceImpl implements DynamicDataService {
     @Override
     public List<Map<String, String>> getTableMetadata(int templateId) {
         try {
-            ReportTemplate template = reportTemplateMapper.getReportTemplateById(templateId);
+            ReportTemplate template = reportTemplateService.getReportTemplateById(templateId);
             try (Connection conn = getConnection(templateId)) {
                 DatabaseMetaData meta = conn.getMetaData();
                 ResultSet rs = meta.getColumns(null, null, template.getTargetTable(), null);

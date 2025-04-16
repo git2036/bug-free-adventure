@@ -26,15 +26,15 @@ public class ReportInfoServiceImpl implements ReportInfoService {
     @Override
     public String getTargetTable(int templateID) {
         String querySql = reportTemplateMapper.getQuerySqlById(templateID);
-        if (querySql == null) {
+        if (querySql == null || querySql.trim().isEmpty()) {
             return null;
         }
-        // 简单的正则表达式匹配，用于提取 SQL 语句中的表名
-        Pattern pattern = Pattern.compile("FROM\\s+(\\w+)");
-        Matcher matcher = pattern.matcher(querySql.toUpperCase());
-        if (matcher.find()) {
-            return matcher.group(1);
-        }
-        return null;
+        // 支持模式名（db.user）、别名（user AS u），忽略大小写，提取第一个表名
+        Pattern pattern = Pattern.compile(
+                "(?i)FROM\\s+([a-zA-Z0-9_.]+)(?:\\s+AS\\s+[a-zA-Z0-9_]+)?",
+                Pattern.CASE_INSENSITIVE
+        );
+        Matcher matcher = pattern.matcher(querySql);
+        return matcher.find() ? matcher.group(1).replaceAll("['\"]", "") : null;
     }
 }

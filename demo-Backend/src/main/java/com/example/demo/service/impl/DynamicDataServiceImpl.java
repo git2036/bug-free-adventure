@@ -93,8 +93,7 @@ public class DynamicDataServiceImpl implements DynamicDataService {
 
             if (!data.containsKey(template.getPrimaryKey())) {
                 // 新增：打印缺失的主键字段和数据内容
-                logger.warn("更新数据时缺失主键字段：{}，传入数据：{}",
-                        template.getPrimaryKey(), data);
+                logger.warn("更新数据时缺失主键字段：{}，传入数据：{}", template.getPrimaryKey(), data);
                 return Result.error("缺失主键字段: " + template.getPrimaryKey());
             }
             Object pkValue = data.get(template.getPrimaryKey());

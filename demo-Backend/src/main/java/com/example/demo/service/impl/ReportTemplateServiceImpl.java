@@ -74,34 +74,35 @@ public class ReportTemplateServiceImpl implements ReportTemplateService {
         if (ds != null) {
             template.setDataSourceName(ds.getDataSourceName());
             // 获取主键（此时 targetTable 已正确解析）
-            String primaryKey = getPrimaryKey(targetTable, ds.getDataSourceID());
+            String primaryKey = getPrimaryKey(targetTable, ds.getDataSourceID()).toString();
             template.setPrimaryKey(primaryKey); // 设置主键
         }
 
         return template;
     }
 
-    private String getPrimaryKey(String targetTable, int dataSourceId) {
+    private List<String> getPrimaryKey(String targetTable, int dataSourceId) {
         DataSources ds = dataSourcesMapper.findByDataSourceID(dataSourceId);
         try (Connection conn = DriverManager.getConnection(
                 ds.getConnectionInfo(),
                 ds.getDataSourceUsername(),
                 ds.getDataSourcePassword()
         )) {
-            DatabaseMetaData meta = conn.getMetaData();
-            ResultSet pkRs = meta.getPrimaryKeys(null, null, targetTable); // 传入正确的 targetTable
+            java.sql.DatabaseMetaData meta = conn.getMetaData();
+            ResultSet pkRs = meta.getPrimaryKeys(null, null, targetTable);
             List<String> primaryKeys = new ArrayList<>();
             while (pkRs.next()) {
                 primaryKeys.add(pkRs.getString("COLUMN_NAME"));
             }
             if (primaryKeys.isEmpty()) {
-                throw new RuntimeException("表 " + targetTable + " 无主键"); // 明确抛出异常
+                throw new RuntimeException("表 " + targetTable + " 无主键");
             }
-            return primaryKeys.get(0); // 单主键场景，多主键需特殊处理
+            return primaryKeys;
         } catch (SQLException e) {
-            logger.error("获取主键失败，表名：{}，错误：{}", targetTable, e.getMessage());
+//            logger.severe("获取主键失败，表名：" + targetTable + "，错误：" + e.getMessage());
             throw new RuntimeException("获取主键失败", e);
         }
+
     }
 
     // 优化后的 SQL 表名解析方法（支持别名和复杂语法）

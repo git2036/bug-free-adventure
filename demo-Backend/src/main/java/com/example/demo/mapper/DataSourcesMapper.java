@@ -36,4 +36,8 @@ public interface DataSourcesMapper{
     //根据 dataSourceID 查找数据源
     @Select("select * from datasources where DataSourceID=#{dataSourceID}")
     DataSources findByDataSourceID(Integer dataSourceID);
+
+    //根据 dataSourceID 查找数据源名称
+    @Select("SELECT dataSourceName FROM datasources WHERE DataSourceID = #{id}")
+    String getDataSourceNameById(int id);
 }

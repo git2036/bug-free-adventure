@@ -13,4 +13,6 @@ public interface ReportTemplateService {
     boolean deleteReportTemplateById(int id);
 
     boolean updateReportTemplate(int id, boolean status);
+
+    ReportTemplate getFullTemplate(int templateId);
 }

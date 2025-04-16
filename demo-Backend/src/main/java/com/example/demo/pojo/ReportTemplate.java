@@ -1,6 +1,7 @@
 package com.example.demo.pojo;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import jakarta.persistence.Transient;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -17,5 +18,15 @@ public class ReportTemplate {
     private String querySql;
     private String templateConfig;
     private String templateState;
+
+
+    @Transient // 表示非数据库字段
+    private String dataSourceName;
+
+    @Transient
+    private String targetTable;
+
+    @Transient
+    private String primaryKey;
 
 }

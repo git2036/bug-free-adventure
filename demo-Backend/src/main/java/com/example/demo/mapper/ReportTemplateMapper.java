@@ -23,4 +23,8 @@ public interface ReportTemplateMapper {
     //更新TemplateName templateState
     @Update("UPDATE reporttemplates SET TemplateName = #{templateName}, TemplateState = #{templateState} WHERE TemplateID = #{id}")
     int updateReportTemplate(int id);
+
+    //根据id查询querySql
+    @Select("SELECT querySql FROM reporttemplates WHERE TemplateID = #{id}")
+    String getQuerySqlById(int id);
 }

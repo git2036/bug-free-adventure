@@ -6,22 +6,35 @@ import com.example.demo.pojo.DataSources;
 import com.example.demo.pojo.ReportTemplate;
 import com.example.demo.pojo.Result;
 import com.example.demo.service.DynamicDataService;
+import com.example.demo.service.ReportTemplateService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.sql.*;
 import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 @Service
 public class DynamicDataServiceImpl implements DynamicDataService {
 
     @Autowired private ReportTemplateMapper reportTemplateMapper;
     @Autowired private DataSourcesMapper dataSourcesMapper;
+    @Autowired private ReportTemplateService reportTemplateService;
+
+    private static final Logger logger = LoggerFactory.getLogger(DynamicDataServiceImpl.class);
 
     private Connection getConnection(int templateId) throws SQLException {
         ReportTemplate template = reportTemplateMapper.getReportTemplateById(templateId);
+        if (template == null) {
+            throw new RuntimeException("报表模板不存在");
+        }
         DataSources ds = dataSourcesMapper.findByDataSourceID(template.getDataSourceID());
+        if (ds == null) {
+            throw new RuntimeException("数据源信息不存在");
+        }
         return DriverManager.getConnection(
                 ds.getConnectionInfo(),
                 ds.getDataSourceUsername(),
@@ -64,14 +77,28 @@ public class DynamicDataServiceImpl implements DynamicDataService {
     @Override
     public Result updateData(int templateId, Map<String, Object> data) {
         try {
-            ReportTemplate template = reportTemplateMapper.getReportTemplateById(templateId);
+            ReportTemplate template = reportTemplateService.getFullTemplate(templateId);
+            System.out.println("template: " + template);
+
+            // 检查模板是否存在及 targetTable、primaryKey 是否有效
+            if (template == null
+                    || template.getTargetTable() == null
+                    || template.getPrimaryKey() == null) { // 新增 primaryKey 为空校验
+                return Result.error("报表模板信息不完整：缺少 targetTable 或 primaryKey");
+            }
+
             validateIdentifier(template.getTargetTable());
-            validateIdentifier(template.getPrimaryKey());
+            validateIdentifier(template.getPrimaryKey()); // 此时 primaryKey 已非 null
+            // 在验证前打印日志
+            System.out.println("Target Table: " + template.getTargetTable());
+            System.out.println("Primary Key: " + template.getPrimaryKey());
 
             if (!data.containsKey(template.getPrimaryKey())) {
                 return Result.error("缺失主键字段: " + template.getPrimaryKey());
             }
             Object pkValue = data.get(template.getPrimaryKey());
+            System.out.println("pkValue: " + pkValue);
+            System.out.println("解析出的主键：" + template.getPrimaryKey());
 
             try (Connection conn = getConnection(templateId)) {
                 List<String> setClauses = data.keySet().stream()

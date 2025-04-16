@@ -15,4 +15,6 @@ public interface ReportTemplateService {
     boolean updateReportTemplate(int id, boolean status);
 
     ReportTemplate getFullTemplate(int templateId);
+
+
 }

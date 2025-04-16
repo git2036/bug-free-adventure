@@ -8,6 +8,8 @@ import com.example.demo.service.ReportTemplateService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.sql.*;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -59,19 +61,50 @@ public class ReportTemplateServiceImpl implements ReportTemplateService {
         DataSources ds = dataSourcesMapper.findByDataSourceID(template.getDataSourceID());
         if (ds != null) {
             template.setDataSourceName(ds.getDataSourceName());
+            // 新增：通过数据源连接获取主键
+            String primaryKey = getPrimaryKey(template.getTargetTable(), ds.getDataSourceID());
+            template.setPrimaryKey(primaryKey); // 设置主键
         }
 
-        // 解析SQL获取目标表
+        // 解析SQL获取目标表（已有逻辑）
         template.setTargetTable(parseTableName(template.getQuerySql()));
 
         return template;
     }
 
-    // SQL解析工具方法
+    // 新增：获取主键的辅助方法
+    private String getPrimaryKey(String targetTable, int dataSourceId) {
+        DataSources ds = dataSourcesMapper.findByDataSourceID(dataSourceId);
+        try (Connection conn = DriverManager.getConnection(
+                ds.getConnectionInfo(),
+                ds.getDataSourceUsername(),
+                ds.getDataSourcePassword()
+        )) {
+            DatabaseMetaData meta = conn.getMetaData();
+            ResultSet pkRs = meta.getPrimaryKeys(null, null, targetTable);
+            List<String> primaryKeys = new ArrayList<>();
+            while (pkRs.next()) {
+                primaryKeys.add(pkRs.getString("COLUMN_NAME"));
+            }
+            return primaryKeys.isEmpty() ? null : primaryKeys.get(0); // 单主键场景
+        } catch (SQLException e) {
+            throw new RuntimeException("获取主键失败: " + e.getMessage());
+        }
+    }
+
+    // 优化后的 SQL 表名解析方法（支持别名和复杂语法）
     private String parseTableName(String sql) {
-        // 简单解析FROM子句后的第一个表名
-        Pattern pattern = Pattern.compile("(?i)FROM\\s+([^\\s,)(]+)");
+        if (sql == null) return null;
+        // 匹配 FROM 后的表名（忽略大小写，支持别名和子查询）
+        Pattern pattern = Pattern.compile(
+                "(?i)\\bFROM\\b\\s+(?:\\[?\"?([a-zA-Z_][a-zA-Z0-9_]*)\"?\\]?\\s+AS\\s+\\w+\\s*|\\[?\"?([a-zA-Z_][a-zA-Z0-9_]*)\"?\\]?)",
+                Pattern.COMMENTS
+        );
         Matcher matcher = pattern.matcher(sql);
-        return matcher.find() ? matcher.group(1).replaceAll("[;`'\"]", "") : null;
+        if (matcher.find()) {
+            // 优先获取带 AS 别名前的表名，其次直接表名
+            return matcher.group(1) != null ? matcher.group(1) : matcher.group(2);
+        }
+        return null;
     }
 }

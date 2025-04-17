@@ -17,11 +17,13 @@ public class ReportTemplate {
     private String templateCreator;
     private String querySql;
     private String templateConfig;
-    private String templateState;
-
-
-    @Transient // 表示非数据库字段
+    private int templateState;
     private String dataSourceName;
+    private String TemplateKey;
+
+
+//    @Transient // 表示非数据库字段
+//    private String dataSourceName;
 
     @Transient
     private String targetTable;
@@ -46,5 +48,24 @@ public class ReportTemplate {
 
     public void setUsablePrimaryKey(String usablePrimaryKey) {
         this.usablePrimaryKey = usablePrimaryKey;
+    }
+    public String getTargetTable() {
+        return targetTable;
+    }
+    public void setTargetTable(String targetTable) {
+        this.targetTable = targetTable;
+    }
+    public String getDataSourceName() {
+        return dataSourceName;
+
+    }
+    public void setDataSourceName(String dataSourceName) {
+        this.dataSourceName = dataSourceName;
+    }
+    public String getTemplateKey() {
+        return TemplateKey;
+    }
+    public void setTemplateKey(String templateKey) {
+        TemplateKey = templateKey;
     }
 }

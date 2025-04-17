@@ -53,8 +53,8 @@ public class ReportTemplateServiceImpl implements ReportTemplateService {
     }
 
     @Override
-    public boolean updateReportTemplate(int id, boolean status) {
-        int rows = reportTemplateMapper.updateReportTemplate(id);
+    public boolean updateReportTemplate(int id, String templateName, Integer status) {
+        int rows = reportTemplateMapper.updateReportTemplate(id,templateName,status);
         return rows > 0;
     }
 

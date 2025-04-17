@@ -66,9 +66,9 @@ public class ReportTemplateController {
 
     // 根据ID更新报表模板信息
     @PutMapping("/update/{id}")
-    public Result updateReportTemplate(@PathVariable("id") int id, @RequestParam("status") boolean status) {
+    public Result updateReportTemplate(@PathVariable("id") int id,@RequestParam("templateName") String templateName, @RequestParam("status") Integer status) {
         // 调用ReportTemplateService的updateReportTemplateStatus方法根据ID更新报表是否启用状态
-        boolean isSuccess = reportTemplateService.updateReportTemplate(id, status);
+        boolean isSuccess = reportTemplateService.updateReportTemplate(id,templateName, status);
         if (isSuccess) {
             // 更新成功返回成功信息
             return Result.success("报表模板状态更新成功");

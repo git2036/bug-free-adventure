@@ -50,27 +50,40 @@ public class DynamicDataServiceImpl implements DynamicDataService {
     @Override
     public Result addData(int templateId, Map<String, Object> data) {
         try {
+            // 获取完整模板（包含目标表信息）
             ReportTemplate template = reportTemplateService.getReportTemplateById(templateId);
+            if (template == null) {
+                return Result.error("报表模板不存在");
+            }
+
+            // 校验目标表合法性
             validateIdentifier(template.getTargetTable());
+            // 校验数据字段合法性（防止 SQL 注入）
             data.keySet().forEach(this::validateIdentifier);
 
             try (Connection conn = getConnection(templateId)) {
+                // 构建插入语句
                 String columns = String.join(",", data.keySet());
                 String placeholders = data.keySet().stream()
-                        .map(k -> "?").collect(Collectors.joining(","));
-
+                        .map(k -> "?")
+                        .collect(Collectors.joining(","));
                 String sql = String.format("INSERT INTO %s (%s) VALUES (%s)",
                         template.getTargetTable(), columns, placeholders);
 
                 try (PreparedStatement ps = conn.prepareStatement(sql)) {
                     int i = 1;
-                    for (Object value : data.values()) ps.setObject(i++, value);
-                    ps.executeUpdate();
-                    return Result.success("数据添加成功");
+                    for (Object value : data.values()) {
+                        ps.setObject(i++, value); // 按顺序设置参数
+                    }
+                    int affected = ps.executeUpdate();
+                    return affected > 0 ? Result.success("数据添加成功") : Result.error("添加失败，无记录受影响");
                 }
             }
-        } catch (Exception e) {
-            return Result.error("添加失败: " + e.getMessage());
+        } catch (IllegalArgumentException e) { // 标识符非法（字段名/表名包含非法字符）
+            return Result.error("非法字段名：" + e.getMessage());
+        } catch (Exception e) { // 其他异常（如数据库连接失败）
+            logger.error("添加数据失败，模板ID：{}，错误：{}", templateId, e.getMessage(), e);
+            return Result.error("添加失败：" + e.getMessage());
         }
     }
 
@@ -145,22 +158,37 @@ public class DynamicDataServiceImpl implements DynamicDataService {
     @Override
     public Result deleteData(int templateId, Object primaryKeyValue) {
         try {
-            ReportTemplate template = reportTemplateService.getReportTemplateById(templateId);
+            // 获取完整模板（包含主键信息）
+            ReportTemplate template = reportTemplateService.getFullTemplate(templateId);
+            if (template == null) {
+                return Result.error("报表模板不存在");
+            }
+
+            // 校验目标表和主键合法性
             validateIdentifier(template.getTargetTable());
-            validateIdentifier(template.getPrimaryKey().toString());
+            validateIdentifier(template.getPrimaryKey()); // 主键字段名必须合法
+
+            // 校验主键值非空（防止删除条件无效）
+            if (primaryKeyValue == null) {
+                return Result.error("主键值为空，无法删除");
+            }
 
             try (Connection conn = getConnection(templateId)) {
+                // 构建删除语句（使用主键作为条件）
                 String sql = String.format("DELETE FROM %s WHERE %s=?",
                         template.getTargetTable(), template.getPrimaryKey());
 
                 try (PreparedStatement ps = conn.prepareStatement(sql)) {
-                    ps.setObject(1, primaryKeyValue);
+                    ps.setObject(1, primaryKeyValue); // 设置主键值
                     int affected = ps.executeUpdate();
-                    return affected > 0 ? Result.success() : Result.error("记录不存在");
+                    return affected > 0 ? Result.success("数据删除成功") : Result.error("删除失败，记录不存在");
                 }
             }
-        } catch (Exception e) {
-            return Result.error("删除失败: " + e.getMessage());
+        } catch (IllegalArgumentException e) { // 标识符非法
+            return Result.error("非法表名或主键名：" + e.getMessage());
+        } catch (Exception e) { // 其他异常
+            logger.error("删除数据失败，模板ID：{}，错误：{}", templateId, e.getMessage(), e);
+            return Result.error("删除失败：" + e.getMessage());
         }
     }
 

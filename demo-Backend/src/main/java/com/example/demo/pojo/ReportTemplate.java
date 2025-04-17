@@ -27,13 +27,24 @@ public class ReportTemplate {
     private String targetTable;
 
     @Transient
-    private List<String> primaryKey;
+    private String primaryKey;
 
-    public void setPrimaryKeys(List<String> primaryKeys) {
-        this.primaryKey = primaryKeys;
+    @Transient
+    private String usablePrimaryKey;
+
+    public String getPrimaryKey() {
+        return primaryKey;
     }
 
-    public void setUsablePrimaryKeys(List<String> usablePrimaryKeys) {
-        this.primaryKey = usablePrimaryKeys;
+    public void setPrimaryKey(String primaryKey) {
+        this.primaryKey = primaryKey;
+    }
+
+    public String getUsablePrimaryKey() {
+        return usablePrimaryKey;
+    }
+
+    public void setUsablePrimaryKey(String usablePrimaryKey) {
+        this.usablePrimaryKey = usablePrimaryKey;
     }
 }

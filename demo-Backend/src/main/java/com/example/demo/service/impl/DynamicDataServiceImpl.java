@@ -79,6 +79,19 @@ public class DynamicDataServiceImpl implements DynamicDataService {
         try {
             ReportTemplate template = reportTemplateService.getFullTemplate(templateId);
 
+
+            if (template == null) {
+                return Result.error("模板不存在");
+            }
+
+            // 获取主键字段（字符串类型）
+            String primaryKey = template.getPrimaryKey();
+            logger.info("更新数据，模板ID：{}，目标表：{}，主键：{}",
+                    templateId, template.getTargetTable(), primaryKey);
+
+            // 校验主键字段合法性
+            validateIdentifier(primaryKey);
+
             // 新增：打印关键信息以便调试
             logger.info("更新数据，模板ID：{}，目标表：{}，主键：{}",
                     templateId, template.getTargetTable(), template.getPrimaryKey());

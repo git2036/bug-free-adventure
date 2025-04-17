@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -68,13 +69,26 @@ public class ReportTemplateServiceImpl implements ReportTemplateService {
             template.setTargetTable(parseTableName(template.getQuerySql()));
 
             List<String> primaryKeys = getPrimaryKeysFromTable(ds, template.getTargetTable());
-            List<String> usablePrimaryKeys = filterUsablePrimaryKeys(primaryKeys);
+            String usablePrimaryKey = filterUsablePrimaryKey(primaryKeys);
 
-            template.setPrimaryKeys(primaryKeys);
-            template.setUsablePrimaryKeys(usablePrimaryKeys);
+            // 设置主键字段（取第一个有效主键）
+            template.setPrimaryKey(usablePrimaryKey != null ? usablePrimaryKey : primaryKeys.get(0));
         }
 
         return template;
+    }
+
+    private String filterUsablePrimaryKey(List<String> primaryKeys) {
+        if (primaryKeys.isEmpty()) {
+            throw new RuntimeException("表无主键");
+        }
+
+        // 优先选择名为 "id" 的主键
+        Optional<String> idKey = primaryKeys.stream()
+                .filter(key -> key.equalsIgnoreCase("id"))
+                .findFirst();
+
+        return idKey.orElse(primaryKeys.get(0));
     }
 
     private List<String> getPrimaryKeysFromTable(DataSources ds, String tableName) {

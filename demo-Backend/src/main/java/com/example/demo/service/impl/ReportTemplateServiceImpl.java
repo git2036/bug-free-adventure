@@ -61,24 +61,36 @@ public class ReportTemplateServiceImpl implements ReportTemplateService {
         ReportTemplate template = reportTemplateMapper.getReportTemplateById(templateId);
         if (template == null) return null;
 
-        // 第一步：解析目标表（确保非空）
-        String targetTable = parseTableName(template.getQuerySql());
-        System.out.println("目标表: " + targetTable);
-        if (targetTable == null) {
-            throw new RuntimeException("SQL 中未找到有效的目标表"); // 或日志提示
-        }
-        template.setTargetTable(targetTable);
-
-        // 第二步：获取数据源并处理主键
+        // 获取数据源名称和目标表（原有逻辑）
         DataSources ds = dataSourcesMapper.findByDataSourceID(template.getDataSourceID());
         if (ds != null) {
             template.setDataSourceName(ds.getDataSourceName());
-            // 获取主键（此时 targetTable 已正确解析）
-            String primaryKey = getPrimaryKey(targetTable, ds.getDataSourceID()).toString();
-            template.setPrimaryKey(primaryKey); // 设置主键
+            template.setTargetTable(parseTableName(template.getQuerySql()));
         }
 
+        // 新增：获取表的主键字段
+        String primaryKey = getPrimaryKeyFromTable(ds, template.getTargetTable());
+        template.setPrimaryKey(primaryKey);
+        System.out.println("主键: " + primaryKey);
+
         return template;
+    }
+
+    private String getPrimaryKeyFromTable(DataSources ds, String tableName) {
+        try (Connection conn = DriverManager.getConnection(
+                ds.getConnectionInfo(),
+                ds.getDataSourceUsername(),
+                ds.getDataSourcePassword())) {
+
+            DatabaseMetaData metaData = conn.getMetaData();
+            ResultSet pkRs = metaData.getPrimaryKeys(null, null, tableName);
+            if (pkRs.next()) {
+                return pkRs.getString("COLUMN_NAME"); // 获取单个主键字段
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("获取主键失败", e);
+        }
+        return null; // 若表无主键，需根据业务处理（如抛出异常或默认处理）
     }
 
     private List<String> getPrimaryKey(String targetTable, int dataSourceId) {

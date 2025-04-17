@@ -13,6 +13,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,36 +63,79 @@ public class ReportTemplateServiceImpl implements ReportTemplateService {
         ReportTemplate template = reportTemplateMapper.getReportTemplateById(templateId);
         if (template == null) return null;
 
-        // 获取数据源名称和目标表（原有逻辑）
         DataSources ds = dataSourcesMapper.findByDataSourceID(template.getDataSourceID());
         if (ds != null) {
             template.setDataSourceName(ds.getDataSourceName());
             template.setTargetTable(parseTableName(template.getQuerySql()));
-        }
 
-        // 新增：获取表的主键字段
-        String primaryKey = getPrimaryKeyFromTable(ds, template.getTargetTable());
-        template.setPrimaryKey(primaryKey);
-        System.out.println("主键: " + primaryKey);
+            // 获取完整主键列表
+            List<String> primaryKeys = getPrimaryKeysFromTable(ds, template.getTargetTable());
+            // 筛选可用主键（业务策略：优先使用包含"id"的单主键）
+            List<String> usablePrimaryKeys = filterUsablePrimaryKeys(primaryKeys);
+
+            template.setPrimaryKeys(primaryKeys);         // 原始主键列表
+            template.setUsablePrimaryKeys(usablePrimaryKeys); // 筛选后的可用主键
+            System.out.println("可用主键: " + usablePrimaryKeys);
+        }
 
         return template;
     }
 
-    private String getPrimaryKeyFromTable(DataSources ds, String tableName) {
+    private List<String> getPrimaryKeysFromTable(DataSources ds, String tableName) {
+        List<String> primaryKeys = new ArrayList<>();
+        String schema = extractSchemaFromJdbcUrl(ds.getConnectionInfo()); // 从URL解析schema
+
         try (Connection conn = DriverManager.getConnection(
                 ds.getConnectionInfo(),
                 ds.getDataSourceUsername(),
                 ds.getDataSourcePassword())) {
 
             DatabaseMetaData metaData = conn.getMetaData();
-            ResultSet pkRs = metaData.getPrimaryKeys(null, null, tableName);
-            if (pkRs.next()) {
-                return pkRs.getString("COLUMN_NAME"); // 获取单个主键字段
+            ResultSet pkRs = metaData.getPrimaryKeys(null, schema, tableName); // 使用解析的schema
+
+            while (pkRs.next()) {
+                String columnName = pkRs.getString("COLUMN_NAME");
+                primaryKeys.add(columnName);
             }
+
+            if (primaryKeys.isEmpty()) {
+                throw new RuntimeException("表 " + tableName + " 没有定义主键");
+            }
+
         } catch (Exception e) {
-            throw new RuntimeException("获取主键失败", e);
+            throw new RuntimeException("获取主键失败: " + e.getMessage(), e);
         }
-        return null; // 若表无主键，需根据业务处理（如抛出异常或默认处理）
+        return primaryKeys;
+    }
+
+    private List<String> filterUsablePrimaryKeys(List<String> primaryKeys) {
+        // 业务筛选策略：优先使用包含"id"的单主键（不区分大小写）
+        List<String> lowerCaseKeys = primaryKeys.stream()
+                .map(String::toLowerCase)
+                .collect(Collectors.toList());
+
+        if (lowerCaseKeys.contains("id")) {
+            // 找到第一个匹配的"id"字段（严格匹配原字段大小写）
+            return primaryKeys.stream()
+                    .filter(key -> key.equalsIgnoreCase("id"))
+                    .collect(Collectors.toList());
+        }
+        // 若不包含id且是联合主键，根据业务需求处理（示例：抛出不支持提示）
+        else if (primaryKeys.size() > 1) {
+            throw new RuntimeException("暂不支持无id的联合主键，当前主键：" + primaryKeys);
+        }
+        // 单主键且非id，直接返回（需确保业务逻辑支持）
+        return primaryKeys;
+    }
+
+    private String extractSchemaFromJdbcUrl(String jdbcUrl) {
+        // 支持中文和特殊字符的schema解析（排除?和/）
+        Pattern pattern = Pattern.compile("jdbc:.*?://.*?/([^?/]+)(\\?|$)");
+        Matcher matcher = pattern.matcher(jdbcUrl);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        throw new IllegalArgumentException("无效的JDBC连接URL，无法解析schema: " + jdbcUrl);
     }
 
     private List<String> getPrimaryKey(String targetTable, int dataSourceId) {

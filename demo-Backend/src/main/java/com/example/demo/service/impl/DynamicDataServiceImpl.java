@@ -89,7 +89,7 @@ public class DynamicDataServiceImpl implements DynamicDataService {
             }
 
             validateIdentifier(template.getTargetTable());
-            validateIdentifier(template.getPrimaryKey());
+            validateIdentifier(template.getPrimaryKey().toString());
 
             if (!data.containsKey(template.getPrimaryKey())) {
                 // 新增：打印缺失的主键字段和数据内容
@@ -134,7 +134,7 @@ public class DynamicDataServiceImpl implements DynamicDataService {
         try {
             ReportTemplate template = reportTemplateService.getReportTemplateById(templateId);
             validateIdentifier(template.getTargetTable());
-            validateIdentifier(template.getPrimaryKey());
+            validateIdentifier(template.getPrimaryKey().toString());
 
             try (Connection conn = getConnection(templateId)) {
                 String sql = String.format("DELETE FROM %s WHERE %s=?",

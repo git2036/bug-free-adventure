@@ -16,13 +16,15 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
 @Service
 public class DynamicDataServiceImpl implements DynamicDataService {
 
-    @Autowired private ReportTemplateMapper reportTemplateMapper;
-    @Autowired private DataSourcesMapper dataSourcesMapper;
-    @Autowired private ReportTemplateService reportTemplateService;
+    @Autowired
+    private ReportTemplateMapper reportTemplateMapper;
+    @Autowired
+    private DataSourcesMapper dataSourcesMapper;
+    @Autowired
+    private ReportTemplateService reportTemplateService;
 
     private static final Logger logger = LoggerFactory.getLogger(DynamicDataServiceImpl.class);
 
@@ -48,7 +50,7 @@ public class DynamicDataServiceImpl implements DynamicDataService {
     }
 
     @Override
-    public Result addData(int templateId, Map<String, Object> data) {
+    public Result addData(int templateId, String dataSourceName, String templateKey, Map<String, Object> data) {
         try {
             // 获取完整模板（包含目标表信息）
             ReportTemplate template = reportTemplateService.getReportTemplateById(templateId);
@@ -88,16 +90,15 @@ public class DynamicDataServiceImpl implements DynamicDataService {
     }
 
     @Override
-    public Result updateData(int templateId, Map<String, Object> data) {
+    public Result updateData(int templateId, String dataSourceName, String templateKey, Map<String, Object> data) {
         try {
             ReportTemplate template = reportTemplateService.getFullTemplate(templateId);
-
 
             if (template == null) {
                 return Result.error("模板不存在");
             }
 
-            // 获取主键字段（字符串类型）
+            // 获取实际的主键字段（从模板信息中获取）
             String primaryKey = template.getPrimaryKey();
             logger.info("更新数据，模板ID：{}，目标表：{}，主键：{}",
                     templateId, template.getTargetTable(), primaryKey);
@@ -117,30 +118,30 @@ public class DynamicDataServiceImpl implements DynamicDataService {
             validateIdentifier(template.getTargetTable());
             validateIdentifier(template.getPrimaryKey().toString());
 
-            if (!data.containsKey(template.getPrimaryKey())) {
+            if (!data.containsKey(primaryKey)) {
                 // 新增：打印缺失的主键字段和数据内容
-                logger.warn("更新数据时缺失主键字段：{}，传入数据：{}", template.getPrimaryKey(), data);
-                return Result.error("缺失主键字段: " + template.getPrimaryKey());
+                logger.warn("更新数据时缺失主键字段：{}，传入数据：{}", primaryKey, data);
+                return Result.error("缺失主键字段: " + primaryKey);
             }
-            Object pkValue = data.get(template.getPrimaryKey());
+            Object pkValue = data.get(primaryKey);
             System.out.println("pkValue: " + pkValue);
-            System.out.println("解析出的主键：" + template.getPrimaryKey());
+            System.out.println("解析出的主键：" + primaryKey);
             System.out.println("Target Table: " + template.getTargetTable());
 
             try (Connection conn = getConnection(templateId)) {
                 List<String> setClauses = data.keySet().stream()
-                        .filter(k -> !k.equals(template.getPrimaryKey()))
+                        .filter(k -> !k.equals(primaryKey))
                         .map(k -> k + "=?").collect(Collectors.toList());
 
                 String sql = String.format("UPDATE %s SET %s WHERE %s=?",
                         template.getTargetTable(),
                         String.join(",", setClauses),
-                        template.getPrimaryKey());
+                        primaryKey);
 
                 try (PreparedStatement ps = conn.prepareStatement(sql)) {
                     int i = 1;
                     for (String key : data.keySet()) {
-                        if (!key.equals(template.getPrimaryKey())) {
+                        if (!key.equals(primaryKey)) {
                             ps.setObject(i++, data.get(key));
                         }
                     }
@@ -155,8 +156,12 @@ public class DynamicDataServiceImpl implements DynamicDataService {
         }
     }
 
+
+
+
     @Override
-    public Result deleteData(int templateId, Object primaryKeyValue) {
+    public Result deleteData(int templateId, String dataSourceName, String templateKey, int primaryKeyValue) {
+        System.out.println(templateId+" "+dataSourceName+" "+templateKey+" "+primaryKeyValue);
         try {
             // 获取完整模板（包含主键信息）
             ReportTemplate template = reportTemplateService.getFullTemplate(templateId);
@@ -166,17 +171,17 @@ public class DynamicDataServiceImpl implements DynamicDataService {
 
             // 校验目标表和主键合法性
             validateIdentifier(template.getTargetTable());
-            validateIdentifier(template.getPrimaryKey()); // 主键字段名必须合法
+            validateIdentifier(templateKey); // 主键字段名必须合法
 
-            // 校验主键值非空（防止删除条件无效）
-            if (primaryKeyValue == null) {
-                return Result.error("主键值为空，无法删除");
-            }
+//            // 校验主键值非空（防止删除条件无效）
+//            if (primaryKeyValue == null) {
+//                return Result.error("主键值为空，无法删除");
+//            }
 
             try (Connection conn = getConnection(templateId)) {
                 // 构建删除语句（使用主键作为条件）
                 String sql = String.format("DELETE FROM %s WHERE %s=?",
-                        template.getTargetTable(), template.getPrimaryKey());
+                        template.getTargetTable(), templateKey);
 
                 try (PreparedStatement ps = conn.prepareStatement(sql)) {
                     ps.setObject(1, primaryKeyValue); // 设置主键值
@@ -191,6 +196,8 @@ public class DynamicDataServiceImpl implements DynamicDataService {
             return Result.error("删除失败：" + e.getMessage());
         }
     }
+
+
 
     @Override
     public List<Map<String, Object>> queryData(int templateId) {

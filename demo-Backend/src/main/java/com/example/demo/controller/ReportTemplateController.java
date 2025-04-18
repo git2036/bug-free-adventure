@@ -40,7 +40,9 @@ public class ReportTemplateController {
         // 调用ReportTemplateService的getAllReportTemplates方法获取所有报表模板
         List<ReportTemplate> reportTemplates = reportTemplateService.getAllReportTemplates();
 //        System.out.println(reportTemplates);
+        System.out.println(reportTemplates);
         return Result.success(reportTemplates);
+
     }
 
     // 根据ID获取报表模板

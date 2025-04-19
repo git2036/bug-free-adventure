@@ -80,10 +80,10 @@
         <el-form-item label="类型">
           <el-select v-model="form.dataSourceType" placeholder="请选择">
             <el-option
-              v-for="item in typeOptions"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
+                v-for="item in typeOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
             />
           </el-select>
         </el-form-item>
@@ -130,10 +130,7 @@ const form = ref({
 
 // 类型映射
 const typeMap = {
-  mysql: 'MySQL',
-  oracle: 'Oracle',
-  sqlserver: 'SQL Server',
-  postgresql: 'PostgreSQL'
+  mysql: 'MySQL'
 };
 
 const typeOptions = Object.entries(typeMap).map(([value, label]) => ({ value, label }));

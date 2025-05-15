@@ -1,6 +1,7 @@
 package com.example.demo.controller;
 
 import com.example.demo.pojo.Result;
+import com.example.demo.pojo.Role;
 import com.example.demo.pojo.Users;
 import com.example.demo.service.UsersService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -124,6 +125,15 @@ public class UsersController {
         return Result.success();
     }
 
-
-
+    @GetMapping("/{username}/permissions")
+    public Result getUserPermissions(@PathVariable("username") String username) {
+        System.out.println(username);
+        Role role = usersService.getUserRoleByUsername(username);
+        System.out.println(role);
+        if (role != null) {
+            return Result.success(role.getPermissions());
+        } else {
+            return Result.error("未找到用户角色信息");
+        }
+    }
 }

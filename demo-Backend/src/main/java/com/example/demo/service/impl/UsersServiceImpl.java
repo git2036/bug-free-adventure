@@ -1,5 +1,7 @@
 package com.example.demo.service.impl;
 
+import com.example.demo.mapper.RoleMapper;
+import com.example.demo.pojo.Role;
 import com.example.demo.pojo.Users;
 import com.example.demo.mapper.UsersMapper;
 import com.example.demo.service.UsersService;
@@ -11,8 +13,12 @@ import java.util.List;
 // 标识该类为一个服务类
 @Service
 public class UsersServiceImpl implements UsersService {
+
     @Autowired
     private UsersMapper usersMapper;
+
+    @Autowired
+    private RoleMapper roleMapper;
 
     @Override
     public Users findByUsername(String username) {
@@ -57,5 +63,14 @@ public class UsersServiceImpl implements UsersService {
     @Override
     public void addUser(Users user) {
         usersMapper.addUser(user);
+    }
+
+    @Override
+    public Role getUserRoleByUsername(String username) {
+        Users user = usersMapper.findByUsername(username); // 根据用户名查询用户
+        if (user != null) {
+            return roleMapper.getRoleByName(user.getRole()); // 根据角色名查询角色权限
+        }
+        return null;
     }
 }

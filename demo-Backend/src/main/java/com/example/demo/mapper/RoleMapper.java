@@ -24,4 +24,6 @@ public interface RoleMapper {
     @Update("UPDATE roles SET RoleName = #{RoleName}, Permissions = #{Permissions} WHERE RoleID = #{RoleID}")
     void updateRole(Role role);
 
+    @Select("SELECT * FROM roles WHERE RoleName = #{roleName}")
+    Role getRoleByName(String roleName);
 }

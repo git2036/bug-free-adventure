@@ -33,8 +33,8 @@
 </template>
 
 <script>
-import {ref} from 'vue';
-import {useRouter} from 'vue-router';
+import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 import axios from 'axios'; // 引入 axios
 
 export default {
@@ -45,9 +45,9 @@ export default {
     const router = useRouter();
 
     const handleLogin = async () => {
-
       try {
-        const response = await axios.post('/api/users/login', {
+        // 登录请求获取用户信息
+        const loginResponse = await axios.post('/api/users/login', {
           username: username.value,
           password: password.value,
         }, {
@@ -56,17 +56,36 @@ export default {
           },
         });
 
-
-        if (response.data.code === 200) {
-          localStorage.setItem('isAuthenticated', 'true'); // 存储登录状态
-          localStorage.setItem('user', JSON.stringify(response.data.data)); // 存储用户信息
-          await router.push('/'); // 跳转到首页
-        } else {
-          error.value = response.data.msg || '用户名或密码错误';
+        // 检查登录是否成功
+        if (loginResponse.data.code !== 200) {
+          error.value = loginResponse.data.msg || '登录失败';
+          return;
         }
+
+        // 从响应中获取用户名（假设后端返回的用户信息包含username）
+        const userUsername = username.value; // 确保字段名与后端一致
+        console.log(userUsername);
+        // 通过用户名获取权限
+        const permissionsResponse = await axios.get(`http://localhost:8080/users/${userUsername}/permissions`);
+
+        if (permissionsResponse.data.code === 200) {
+          const permissions = permissionsResponse.data.data;
+          // 存储权限和用户信息（可选：根据需要存储用户信息）
+          localStorage.setItem('permissions', permissions);
+          localStorage.setItem('user', JSON.stringify(loginResponse.data.data)); // 存储用户信息
+          localStorage.setItem('isAuthenticated', 'true');
+          // 强制刷新主页（可选，确保首次登录时菜单正确生成）
+          router.push({ path: '/', replace: true });
+          // 跳转至主页
+          // router.push('/home');
+        } else {
+          error.value = '获取权限失败，请重试';
+          console.error('权限获取失败:', permissionsResponse.data.msg);
+        }
+
       } catch (err) {
-        console.error('登录请求失败:', err); // 打印错误信息
-        error.value = '请求失败，请检查网络或稍后重试';
+        console.error('登录过程出错:', err);
+        error.value = '登录失败，请检查网络或联系管理员';
       }
     };
 
@@ -81,6 +100,7 @@ export default {
 </script>
 
 <style scoped>
+/* 样式部分保持不变，无需修改 */
 .login-container {
   max-width: 400px;
   margin: 100px auto;

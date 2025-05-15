@@ -3,7 +3,9 @@ package com.example.demo.service.impl;
 import com.example.demo.mapper.DataSourcesMapper;
 import com.example.demo.mapper.ReportTemplateMapper;
 import com.example.demo.pojo.DataSources;
+import com.example.demo.pojo.ReportInstances;
 import com.example.demo.pojo.ReportTemplate;
+import com.example.demo.pojo.Result;
 import com.example.demo.service.ReportTemplateService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -27,6 +29,7 @@ public class ReportTemplateServiceImpl implements ReportTemplateService {
 
     @Autowired
     private DataSourcesMapper dataSourcesMapper;
+
 
     private static final Logger logger = LoggerFactory.getLogger(DynamicDataServiceImpl.class);
 
@@ -76,6 +79,21 @@ public class ReportTemplateServiceImpl implements ReportTemplateService {
         }
 
         return template;
+    }
+
+    @Override
+    public Result instanceReport(ReportInstances reportInstance) {
+        // 设置状态为默认值 "已生成"
+        if (reportInstance.getStatus() == null || reportInstance.getStatus().isEmpty()) {
+            reportInstance.setStatus("已生成");
+        }
+        // 调用 Mapper 插入实例
+        try {
+            reportTemplateMapper.instanceReport(reportInstance);
+            return Result.success("报表实例创建成功");
+        } catch (Exception e) {
+            return Result.error("报表实例创建失败");
+        }
     }
 
     private String filterUsablePrimaryKey(List<String> primaryKeys) {

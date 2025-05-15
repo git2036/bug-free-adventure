@@ -4,10 +4,10 @@ import lombok.Data;
 
 @Data
 public class ReportInstances {
-    private Integer InstanceID;
-    private String InstanceName;
-    private Integer TemplateID;
-    private String ReportData;
-    private Integer CreatedBy;
-    private String Status;
+    private Integer instanceID;
+    private String instanceName;
+    private Integer templateID;
+    private String reportData;
+    private String createdBy;
+    private String status;
 }

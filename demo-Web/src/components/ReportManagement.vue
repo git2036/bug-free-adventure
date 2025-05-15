@@ -18,7 +18,7 @@
       <el-table-column label="状态">
         <template #default="{ row }">
           <span :class="row.templateState === '1' ? 'active' : 'inactive'">
-            {{ row.templateState === '1' ? '启用' : '停用' }}
+            {{ row.templateState ===  1 ? '启用' : '停用' }}
           </span>
         </template>
       </el-table-column>
@@ -26,11 +26,25 @@
         <template #default="{ row }">
           <el-button size="small" @click="editReport(row)">编辑</el-button>
           <el-button size="small" color="green" @click="viewReportData(row)">查看</el-button>
-          <el-button size="small" color="" @click="exportReport(row)">实例化</el-button>
           <el-button size="small" type="danger" @click="deleteReport(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
+
+    <!-- 实例化弹窗 -->
+    <el-dialog v-model="instanceDialogVisible" title="创建报表实例" width="30%">
+      <el-form ref="instanceFormRef" :model="instanceForm" :rules="instanceRules" label-width="100px">
+        <el-form-item label="实例名称" prop="instanceName">
+          <el-input v-model="instanceForm.instanceName" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="closeInstanceDialog">取消</el-button>
+          <el-button type="primary" @click="confirmCreateInstance">确定</el-button>
+        </span>
+      </template>
+    </el-dialog>
 
     <!-- 编辑弹窗 -->
     <el-dialog v-model="editDialogVisible" title="编辑报表" @close="closeEditDialog" width="30%">
@@ -45,7 +59,6 @@
           </el-select>
         </el-form-item>
       </el-form>
-
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="closeEditDialog">取消</el-button>
@@ -76,7 +89,6 @@
             </el-form-item>
           </template>
         </el-form>
-
         <template #footer>
           <span class="dialog-footer">
             <el-button @click="closeEditDataDialog">取消</el-button>
@@ -85,8 +97,11 @@
         </template>
       </el-dialog>
 
+      <!-- 查看弹窗底部按钮 -->
       <template #footer>
         <span class="dialog-footer">
+          <!-- 实例化按钮：样式与关闭按钮一致 -->
+          <el-button type="primary" @click="exportFromViewDialog">实例化</el-button>
           <el-button @click="closeViewDialog">关闭</el-button>
         </span>
       </template>
@@ -94,13 +109,17 @@
 
     <!-- 分页组件包裹元素 -->
     <div class="pagination-wrapper">
-      <el-pagination v-if="filteredReports.length > 10" @size-change="handleSizeChange"
-                     @current-change="handleCurrentChange" :current-page="currentPage" :page-sizes="[10, 20, 30]"
-                     :page-size="pageSize" prev-text="上一页" next-text="下一页" :total="filteredReports.length"
+      <el-pagination v-if="filteredReports.length > 10"
+                     @size-change="handleSizeChange"
+                     @current-change="handleCurrentChange"
+                     :current-page="currentPage"
+                     :page-sizes="[10, 20, 30]"
+                     :page-size="pageSize"
+                     prev-text="上一页"
+                     next-text="下一页"
+                     :total="filteredReports.length"
                      layout="total, sizes, prev, pager, next, jumper">
-        <template #total>
-          共 {{ filteredReports.length }} 条数据
-        </template>
+        <template #total>共 {{ filteredReports.length }} 条数据</template>
         <template #sizes>
           每页显示
           <el-select v-model="pageSize" @change="handleSizeChange">
@@ -132,6 +151,22 @@ export default {
     const pageSize = ref(10);
     const jumpPage = ref(1);
 
+    // 实例化相关
+    const instanceDialogVisible = ref(false);
+    const instanceForm = ref({
+      instanceName: '',
+      templateID: null,
+      reportData: [],
+      createdBy: '',
+      status: '已生成'
+    });
+    const instanceFormRef = ref(null);
+    const instanceRules = {
+      instanceName: [
+        { required: true, message: '请输入实例名称', trigger: 'blur' }
+      ]
+    };
+
     // 编辑弹窗相关
     const editDialogVisible = ref(false);
     const editForm = ref({
@@ -145,7 +180,7 @@ export default {
     const reportDataList = ref([]);
     const currentTemplateId = ref(null);
     const tableColumns = ref([]);
-    const templateInfoMap = ref({}); // 用于存储每个模板的 templateKey 和 dataSourceName
+    const templateInfoMap = ref({});
 
     // 编辑数据弹窗相关
     const editDataDialogVisible = ref(false);
@@ -154,8 +189,10 @@ export default {
     // 过滤后的数据
     const filteredReports = computed(() => {
       return reports.value.filter((report) => {
+        const reportState = String(report.templateState);
+        const selectedStatus = String(filterStatus.value);
         const matchesSearch = report.templateName.toLowerCase().includes(searchQuery.value.toLowerCase());
-        const matchesStatus = (!filterStatus.value || String(report.templateState) === String(filterStatus.value));
+        const matchesStatus = !selectedStatus || reportState === selectedStatus;
         return matchesSearch && matchesStatus;
       });
     });
@@ -169,13 +206,13 @@ export default {
 
     // 处理搜索
     const handleSearch = () => {
-      currentPage.value = 1; // 搜索后回到第一页
+      currentPage.value = 1;
     };
 
     // 处理每页显示数量的变化
     const handleSizeChange = (newSize) => {
       pageSize.value = newSize;
-      currentPage.value = 1; // 改变每页数量后回到第一页
+      currentPage.value = 1;
     };
 
     // 处理页码变化
@@ -193,25 +230,23 @@ export default {
       }
     };
 
-    // 调用API获取报表数据
+    // 获取所有报表数据
     const fetchReports = async () => {
       try {
         const response = await axios.get(`${API_BASE}/reporttemplates/getAll`);
         if (response.data.code === 200) {
-          const allReports = response.data.data;
-          const reportsWithDataSourceName = await Promise.all(allReports.map(async (report) => {
+          const allReports = response.data.data.map(report => {
             if (!report.dataSourceName) {
               report.dataSourceName = '未知数据源';
             }
-            // 存储每个模板的 templateKey 和 dataSourceName
             templateInfoMap.value[report.templateID] = {
               templateKey: report.templateKey || report.primaryKey || 'defaultTemplateKey',
-              dataSourceName: report.dataSourceName
+              dataSourceName: report.dataSourceName,
+              templateCreator: report.templateCreator
             };
             return report;
-          }));
-          reports.value = reportsWithDataSourceName;
-          console.log('获取到的报表数据：', reports.value);
+          });
+          reports.value = allReports;
         } else {
           ElMessage.error('获取报表数据失败');
         }
@@ -221,16 +256,72 @@ export default {
       }
     };
 
+    // 从查看弹窗调用的实例化方法
+    const exportFromViewDialog = () => {
+      const templateInfo = templateInfoMap.value[currentTemplateId.value];
+      if (!templateInfo) {
+        ElMessage.error('无法获取模板信息');
+        return;
+      }
+
+      instanceForm.value = {
+        instanceName: '',
+        templateID: currentTemplateId.value,
+        reportData: [...reportDataList.value],
+        createdBy: templateInfo.templateCreator || templateInfo.dataSourceName || '未知用户',
+        status: '已生成'
+      };
+
+      instanceDialogVisible.value = true;
+    };
+
+    // 提交创建实例
+    const confirmCreateInstance = async () => {
+      try {
+        await instanceFormRef.value.validate();
+
+        const requestData = {
+          instanceName: instanceForm.value.instanceName,
+          templateID: instanceForm.value.templateID,
+          reportData: JSON.stringify(instanceForm.value.reportData),
+          createdBy: instanceForm.value.createdBy,
+          status: instanceForm.value.status
+        };
+        console.log('创建实例请求数据:', requestData);
+        const response = await axios.post(`${API_BASE}/reporttemplates/instance`, requestData);
+
+        if (response.data.code === 200) {
+          ElMessage.success('报表实例创建成功');
+          closeInstanceDialog();
+        } else {
+          ElMessage.error('报表实例创建失败');
+        }
+      } catch (error) {
+        console.error('创建报表实例时出错:', error);
+        ElMessage.error('创建报表实例失败');
+      }
+    };
+
+    // 关闭实例化弹窗
+    const closeInstanceDialog = () => {
+      instanceDialogVisible.value = false;
+      instanceForm.value = {
+        instanceName: '',
+        templateID: null,
+        reportData: [],
+        createdBy: '',
+        status: '已生成'
+      };
+    };
+
     // 编辑报表
     const editReport = (report) => {
-      console.log('编辑按钮被点击，当前报表信息：', report);
       editForm.value = {
         templateID: report.templateID,
         templateName: report.templateName,
         templateState: report.templateState
       };
       editDialogVisible.value = true;
-      console.log('编辑弹窗是否显示：', editDialogVisible.value);
     };
 
     // 关闭编辑弹窗
@@ -243,6 +334,7 @@ export default {
       try {
         const status = editForm.value.templateState;
         const templateName = editForm.value.templateName;
+
         const response = await axios.put(
             `${API_BASE}/reporttemplates/update/${editForm.value.templateID}`,
             null,
@@ -253,9 +345,9 @@ export default {
               }
             }
         );
+
         if (response.data.code === 200) {
           ElMessage.success('报表模板状态更新成功');
-          // 关闭编辑弹窗
           editDialogVisible.value = false;
           await fetchReports();
         } else {
@@ -275,19 +367,17 @@ export default {
           cancelButtonText: '取消',
           type: 'warning'
         });
+
         const response = await axios.delete(`${API_BASE}/reporttemplates/deleteById/${report.templateID}`);
+
         if (response.data.code === 200) {
           ElMessage.success('报表模板删除成功');
-          // 重新获取报表数据
           await fetchReports();
         } else {
           ElMessage.error('报表模板删除失败');
         }
       } catch (error) {
-        if (error === 'cancel') {
-          // 用户点击了取消按钮
-          return;
-        }
+        if (error === 'cancel') return;
         console.error('删除报表时出错:', error);
         ElMessage.error('报表模板删除失败');
       }
@@ -297,26 +387,20 @@ export default {
     const viewReportData = async (report) => {
       try {
         currentTemplateId.value = report.templateID;
-        // 获取报表模板信息
         const templateResponse = await axios.get(`${API_BASE}/reporttemplates/getById/${report.templateID}`);
         if (templateResponse.data.code === 200) {
           const template = templateResponse.data.data;
-          // 解析 TemplateConfig
           tableColumns.value = JSON.parse(template.templateConfig);
 
-          // 获取报表数据
           const dataResponse = await axios.get(`${API_BASE}/dynamic-data/${report.templateID}`);
           if (dataResponse.data.code === 200) {
             reportDataList.value = dataResponse.data.data;
             viewDialogVisible.value = true;
           } else {
-            console.error('获取报表数据失败', dataResponse.data);
             ElMessage.error('获取报表数据失败');
           }
         } else {
-          console.error('获取报表模板信息失败', templateResponse.data);
           ElMessage.error('获取报表模板信息失败');
-          return;
         }
       } catch (error) {
         console.error('获取报表数据时出错:', error);
@@ -352,17 +436,16 @@ export default {
             'templateKey': encodedTemplateKey
           }
         };
-        console.log('请求配置:', config); // 打印请求配置
+
         const response = await axios.put(
             `${API_BASE}/dynamic-data/${currentTemplateId.value}`,
             editDataForm.value,
             config
         );
-        console.log('更新数据请求参数：', editDataForm.value);
+
         if (response.data.code === 200) {
           ElMessage.success('数据更新成功');
-          // 重新获取报表数据
-          await viewReportData({templateID: currentTemplateId.value});
+          await viewReportData({ templateID: currentTemplateId.value });
           closeEditDataDialog();
         } else {
           ElMessage.error('数据更新失败');
@@ -381,6 +464,7 @@ export default {
           cancelButtonText: '取消',
           type: 'warning'
         });
+
         const id = data.id;
         const { templateKey, dataSourceName } = templateInfoMap.value[currentTemplateId.value];
         const encodedDataSourceName = encodeURIComponent(dataSourceName);
@@ -391,24 +475,20 @@ export default {
             'templateKey': encodedTemplateKey
           }
         };
-        console.log('请求配置:', config); // 打印请求配置
+
         const response = await axios.delete(
             `${API_BASE}/dynamic-data/${currentTemplateId.value}/${id}`,
             config
         );
-        console.log('请求发送的 headers:', response.config.headers); // 打印实际发送的请求头
+
         if (response.data.code === 200) {
           ElMessage.success('数据删除成功');
-          // 重新获取报表数据
           await viewReportData({ templateID: currentTemplateId.value });
         } else {
           ElMessage.error('数据删除失败');
         }
       } catch (error) {
-        if (error === 'cancel') {
-          // 用户点击了取消按钮
-          return;
-        }
+        if (error === 'cancel') return;
         console.error('删除数据时出错:', error);
         ElMessage.error('数据删除失败');
       }
@@ -447,7 +527,14 @@ export default {
       closeEditDataDialog,
       saveEditReportData,
       deleteReportData,
-      closeViewDialog
+      closeViewDialog,
+      exportFromViewDialog,
+      instanceDialogVisible,
+      instanceForm,
+      instanceFormRef,
+      instanceRules,
+      confirmCreateInstance,
+      closeInstanceDialog
     };
   }
 };
@@ -469,5 +556,11 @@ export default {
   margin-top: 20px;
   display: flex;
   justify-content: center;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
 </style>

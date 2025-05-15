@@ -1,5 +1,6 @@
 package com.example.demo.service;
 
+import com.example.demo.pojo.Role;
 import com.example.demo.pojo.Users;
 
 import java.util.List;
@@ -19,10 +20,12 @@ public interface UsersService {
 
     void updateUserDataAndRole(int id, String username, String password, String role);
 
-
     List<Users> findAllUsers();
 
     void updateUser(Users user);
 
     void addUser(Users user);
+
+    //获取用户角色权限
+    Role getUserRoleByUsername(String username);
 }

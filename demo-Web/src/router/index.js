@@ -29,8 +29,8 @@ const routes = [
     },
     //UserManagement.vue页面
     {
-        path: '/Usermanagement',// 数据源管理页面路径
-        name: 'UserManagement',// 数据源管理页面路径
+        path: '/Usermanagement',// 用户管理页面路径
+        name: 'UserManagement',
         component: () => import('../components/UserManagement.vue'),
         meta: { 
             requiresAuth: true,
@@ -46,6 +46,7 @@ const routes = [
             requiresAuth: true
         }
     },
+    // 报表实例管理路由
     {
         path: '/report-instances',
         name: 'ReportInstanceManagement',
@@ -54,10 +55,19 @@ const routes = [
             requiresAuth: true
         }
     },
-    {   path: '/permission-management',
+    {   path: '/permission-management', // 角色管理页面路径
         name: 'PermissionManagement',
         component: () => import('../components/RoleManagement.vue'),
         meta: { requiresAuth: true, requiresAdmin: true }}, // 权限管理页面
+    //报表管理路由
+    {
+        path: '/report-management',
+        name: 'ReportManagement',
+        component: () => import('../components/ReportManagement.vue'),
+        meta: {
+            requiresAuth: true
+        }
+    }
 ];
 
 const router = createRouter({

@@ -1,5 +1,6 @@
 package com.example.demo.controller;
 
+import com.example.demo.pojo.ReportInstances;
 import com.example.demo.pojo.ReportTemplate;
 import com.example.demo.pojo.Result;
 import com.example.demo.service.ReportTemplateService;
@@ -78,5 +79,13 @@ public class ReportTemplateController {
             // 更新失败返回失败信息
             return Result.error("报表模板状态更新失败");
         }
+    }
+
+    //实例化
+    // 实例化报表
+    @PostMapping("/instance")
+    public Result instanceReport(@RequestBody ReportInstances reportInstance){
+        System.out.println(reportInstance);
+        return reportTemplateService.instanceReport(reportInstance);
     }
 }

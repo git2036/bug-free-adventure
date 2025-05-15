@@ -57,18 +57,18 @@
 </template>
 
 <script>
-import {ref, onMounted, computed} from "vue";
-import {useRouter} from "vue-router";
+import { ref, onMounted, computed, watch } from "vue";
+import { useRouter } from "vue-router";
 import axios from "axios";
-import {ElMessage, ElMessageBox} from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
 
-import {User, Document, Edit, Setting} from "@element-plus/icons-vue";
+import { User, Document, Edit, Setting } from "@element-plus/icons-vue";
 import Report from "../components/Report.vue";
 import UserManagement from "../components/UserManagement.vue";
 import ReportManagement from "../components/ReportManagement.vue";
 import DataSourceManagement from "../components/DataSourceManagement.vue";
 import ReportInstanceManagement from "../components/ReportInstanceManagement.vue";
-import PermissionManagement from "../components/RoleManagement.vue"; // 导入权限管理组件
+import PermissionManagement from "../components/RoleManagement.vue";
 
 export default {
   components: {
@@ -77,7 +77,7 @@ export default {
     ReportManagement,
     DataSourceManagement,
     ReportInstanceManagement,
-    PermissionManagement // 注册权限管理组件
+    PermissionManagement
   },
   setup() {
     const router = useRouter();
@@ -86,23 +86,45 @@ export default {
     const menuItems = ref([]);
     const dialogVisible = ref(false);
     const editable = ref(false);
+    const permissions = ref(localStorage.getItem('permissions') || '');
+
+    // 定义 generateMenuItems 函数
+    const generateMenuItems = () => {
+      const allMenuItems = [
+        { name: "report", label: "报表设计", icon: Document, permission: "design" },
+        { name: "report-management", label: "报表管理", icon: Document, permission: "report manager" },
+        { name: "data-source", label: "数据源管理", icon: Edit, permission: "data source" },
+        { name: "report-instance", label: "报表实例管理", icon: Document, permission: "report example" },
+        { name: "permission-management", label: "角色管理", icon: Setting, permission: "role" },
+        { name: "role", label: "用户管理", icon: Setting, permission: "user" }
+      ];
+
+      // 根据权限过滤菜单项
+      if (!permissions.value) {
+        menuItems.value = [];
+        return;
+      }
+
+      const userPermissions = permissions.value.split(',').map(p => p.trim());
+      menuItems.value = allMenuItems.filter(item =>
+          item.permission && userPermissions.includes(item.permission)
+      );
+    };
+
+    // 监听权限变化，重新生成菜单
+    watch(permissions, () => {
+      generateMenuItems();
+    }, { immediate: true });
 
     const activeComponent = computed(() => {
       switch (activeMenu.value) {
-        case "report":
-          return "Report";
-        case "role":
-          return "UserManagement";
-        case "report-management":
-          return "ReportManagement";
-        case "data-source":
-          return "DataSourceManagement";
-        case "report-instance":
-          return "ReportInstanceManagement";
-        case "permission-management": // 权限管理组件映射
-          return "PermissionManagement";
-        default:
-          return "Report";
+        case "report": return "Report";
+        case "report-management": return "ReportManagement";
+        case "data-source": return "DataSourceManagement";
+        case "report-instance": return "ReportInstanceManagement";
+        case "permission-management": return "PermissionManagement";
+        case "role": return "UserManagement";
+        default: return "Report";
       }
     });
 
@@ -110,36 +132,20 @@ export default {
       const userData = localStorage.getItem("user");
       if (userData) {
         user.value = JSON.parse(userData);
-        if (!user.value.Permissions) {
-          user.value.Permissions = user.value.username === "admin" ? "Create,Edit,Delete,View" : "View";
-        }
-        generateMenuItems(user.value);
+        permissions.value = localStorage.getItem('permissions') || '';
       } else {
         router.push("/login");
       }
     });
 
-    const generateMenuItems = user => {
-      const items = [
-        {name: "report", label: "报表设计", icon: Document},
-        {name: "report-management", label: "报表管理", icon: Document},
-        {name: "data-source", label: "数据源管理", icon: Edit},
-        {name: "report-instance", label: "报表实例管理", icon: Document},
-        {name: "permission-management", label: "角色管理", icon: Setting} // 新增菜单项
-      ];
-      if (user.username === "admin") {
-        items.push({name: "role", label: "用户管理", icon: Setting});
-      }
-      menuItems.value = items;
-    };
-
-    const handleMenuSelect = index => {
+    const handleMenuSelect = (index) => {
       activeMenu.value = index;
     };
 
     const handleLogout = () => {
       localStorage.removeItem("isAuthenticated");
       localStorage.removeItem("user");
+      localStorage.removeItem("permissions");
       router.push("/login");
     };
 
@@ -149,6 +155,7 @@ export default {
         if (response.data.code === 200) {
           ElMessage.success("账户注销成功");
           localStorage.removeItem("user");
+          localStorage.removeItem("permissions");
           router.push("/login");
         } else {
           ElMessage.error("账户注销失败");
@@ -175,7 +182,6 @@ export default {
     };
 
     const handleSave = async () => {
-      console.log('Sending user data:', user.value);
       try {
         const response = await axios.put(`http://localhost:8080/users/${user.value.userID}`, user.value);
         if (response.data.code === 200) {
@@ -200,14 +206,14 @@ export default {
       handleLogout,
       handleDeleteAccount,
       handleSave,
-      confirmDeleteAccount
+      confirmDeleteAccount,
+      permissions
     };
   }
 };
 </script>
 
 <style scoped>
-/* 样式保持不变，无需修改 */
 .home-container {
   display: flex;
   flex-direction: column;

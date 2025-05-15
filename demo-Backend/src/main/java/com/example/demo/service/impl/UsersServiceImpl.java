@@ -40,8 +40,8 @@ public class UsersServiceImpl implements UsersService {
     }
 
     @Override
-    public void updateUserDataAndPermissions(int id, String username, String password, String Permissions) {
-        usersMapper.updateUserDataAndPermissions(id, username,  password,Permissions);
+    public void updateUserDataAndRole(int id, String username, String password, String role) {
+        usersMapper.updateUserDataAndRole(id, username,  password, role);
     }
 
     @Override

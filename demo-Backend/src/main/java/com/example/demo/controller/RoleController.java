@@ -45,4 +45,5 @@ public class RoleController {
         roleService.updateRole(role);
         return Result.success("角色更新成功");
     }
+
 }

@@ -18,7 +18,7 @@
       <el-table-column label="状态">
         <template #default="{ row }">
           <span :class="row.templateState === '1' ? 'active' : 'inactive'">
-            {{ row.templateState === 1 ? '启用' : '停用' }}
+            {{ row.templateState === '1' ? '启用' : '停用' }}
           </span>
         </template>
       </el-table-column>
@@ -28,13 +28,12 @@
           <el-button size="small" color="green" @click="viewReportData(row)">查看</el-button>
           <el-button size="small" color="" @click="exportReport(row)">实例化</el-button>
           <el-button size="small" type="danger" @click="deleteReport(row)">删除</el-button>
-
         </template>
       </el-table-column>
     </el-table>
 
     <!-- 编辑弹窗 -->
-    <el-dialog v-model="editDialogVisible" title="编辑报表" @close="closeEditDialog">
+    <el-dialog v-model="editDialogVisible" title="编辑报表" @close="closeEditDialog" width="30%">
       <el-form :model="editForm" label-width="80px">
         <el-form-item label="报表名称">
           <el-input v-model="editForm.templateName" />
@@ -67,16 +66,6 @@
           </template>
         </el-table-column>
       </el-table>
-
-      <!-- 添加数据表单 -->
-      <el-form :model="addForm" label-width="80px">
-        <template v-for="column in tableColumns" :key="column.prop">
-          <el-form-item :label="column.label">
-            <el-input v-model="addForm[column.prop]" />
-          </el-form-item>
-        </template>
-        <el-button type="primary" @click="addReportData">添加</el-button>
-      </el-form>
 
       <!-- 编辑数据表单 -->
       <el-dialog v-model="editDataDialogVisible" title="编辑报表数据" @close="closeEditDataDialog">
@@ -129,7 +118,7 @@
 
 <script>
 import { ref, computed, onMounted } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import axios from 'axios';
 
 const API_BASE = 'http://localhost:8080';
@@ -158,9 +147,6 @@ export default {
     const tableColumns = ref([]);
     const templateInfoMap = ref({}); // 用于存储每个模板的 templateKey 和 dataSourceName
 
-    // 添加数据表单
-    const addForm = ref({});
-
     // 编辑数据弹窗相关
     const editDataDialogVisible = ref(false);
     const editDataForm = ref({});
@@ -169,7 +155,7 @@ export default {
     const filteredReports = computed(() => {
       return reports.value.filter((report) => {
         const matchesSearch = report.templateName.toLowerCase().includes(searchQuery.value.toLowerCase());
-        const matchesStatus = (!filterStatus.value || report.templateState === filterStatus.value);
+        const matchesStatus = (!filterStatus.value || String(report.templateState) === String(filterStatus.value));
         return matchesSearch && matchesStatus;
       });
     });
@@ -284,6 +270,11 @@ export default {
     // 删除报表
     const deleteReport = async (report) => {
       try {
+        await ElMessageBox.confirm('确定要删除该报表吗？', '提示', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        });
         const response = await axios.delete(`${API_BASE}/reporttemplates/deleteById/${report.templateID}`);
         if (response.data.code === 200) {
           ElMessage.success('报表模板删除成功');
@@ -293,6 +284,10 @@ export default {
           ElMessage.error('报表模板删除失败');
         }
       } catch (error) {
+        if (error === 'cancel') {
+          // 用户点击了取消按钮
+          return;
+        }
         console.error('删除报表时出错:', error);
         ElMessage.error('报表模板删除失败');
       }
@@ -308,11 +303,6 @@ export default {
           const template = templateResponse.data.data;
           // 解析 TemplateConfig
           tableColumns.value = JSON.parse(template.templateConfig);
-          // 初始化添加表单
-          addForm.value = {};
-          tableColumns.value.forEach(column => {
-            addForm.value[column.prop] = '';
-          });
 
           // 获取报表数据
           const dataResponse = await axios.get(`${API_BASE}/dynamic-data/${report.templateID}`);
@@ -337,41 +327,6 @@ export default {
     // 关闭查看数据列表弹窗
     const closeViewDialog = () => {
       viewDialogVisible.value = false;
-    };
-
-    // 添加报表数据
-    const addReportData = async () => {
-      try {
-        const { templateKey, dataSourceName } = templateInfoMap.value[currentTemplateId.value];
-        const encodedDataSourceName = encodeURIComponent(dataSourceName);
-        const encodedTemplateKey = encodeURIComponent(templateKey);
-        const config = {
-          headers: {
-            'dataSourceName': encodedDataSourceName,
-            'templateKey': encodedTemplateKey
-          }
-        };
-        console.log('请求配置:', config); // 打印请求配置
-        const response = await axios.post(
-            `${API_BASE}/dynamic-data/${currentTemplateId.value}`,
-            addForm.value,
-            config
-        );
-        if (response.data.code === 200) {
-          ElMessage.success('数据添加成功');
-          // 重新获取报表数据
-          await viewReportData({templateID: currentTemplateId.value});
-          // 清空添加表单
-          tableColumns.value.forEach(column => {
-            addForm.value[column.prop] = '';
-          });
-        } else {
-          ElMessage.error('数据添加失败');
-        }
-      } catch (error) {
-        console.error('添加数据时出错:', error);
-        ElMessage.error('数据添加失败');
-      }
     };
 
     // 编辑报表数据
@@ -421,6 +376,11 @@ export default {
     // 删除报表数据
     const deleteReportData = async (data) => {
       try {
+        await ElMessageBox.confirm('确定要删除该报表数据吗？', '提示', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        });
         const id = data.id;
         const { templateKey, dataSourceName } = templateInfoMap.value[currentTemplateId.value];
         const encodedDataSourceName = encodeURIComponent(dataSourceName);
@@ -445,6 +405,10 @@ export default {
           ElMessage.error('数据删除失败');
         }
       } catch (error) {
+        if (error === 'cancel') {
+          // 用户点击了取消按钮
+          return;
+        }
         console.error('删除数据时出错:', error);
         ElMessage.error('数据删除失败');
       }
@@ -477,8 +441,6 @@ export default {
       viewDialogVisible,
       reportDataList,
       tableColumns,
-      addReportData,
-      addForm,
       editReportData,
       editDataDialogVisible,
       editDataForm,

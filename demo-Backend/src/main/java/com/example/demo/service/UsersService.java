@@ -17,7 +17,7 @@ public interface UsersService {
 
     void deleteUser(int id);
 
-    void updateUserDataAndPermissions(int id, String username, String password, String Permissions);
+    void updateUserDataAndRole(int id, String username, String password, String role);
 
 
     List<Users> findAllUsers();

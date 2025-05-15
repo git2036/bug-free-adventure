@@ -30,19 +30,19 @@ public interface UsersMapper {
     void deleteUser(int id);
 
     //更新用户信息和权限
-    @Update("update users set username=#{username},password=#{password},Permissions=#{permissions} where UserID=#{id}")
-    void updateUserDataAndPermissions(int id, String username, String password, String permissions);
+    @Update("update users set username=#{username},password=#{password},Role=#{role} where UserID=#{id}")
+    void updateUserDataAndRole(int id, String username, String password, String role);
 
     //查询所有用户信息
     @Select("select * from users")
     List<Users> findAllUsers();
 
     //更新用户信息
-    @Update("update users set username=#{username},password=#{password},Permissions=#{permissions} where UserID=#{userID}")
+    @Update("update users set username=#{username},password=#{password},Role=#{role} where UserID=#{userID}")
     void updateUser(Users user);
 
     //新增用户
-    @Insert("insert into users(username,password,Permissions) values(#{username},#{password},#{permissions})")
+    @Insert("insert into users(username,password,Role) values(#{username},#{password},#{role})")
     void addUser(Users user);
 
 

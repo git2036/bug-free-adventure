@@ -9,5 +9,5 @@ public class Users {
     private Integer userID;    // 用户唯一标识
     private String username;   // 用户名
     private String password;   // 用户密码
-    private String Permissions;  // 用户角色权限
+    private String role;  // 用户角色权限
 }

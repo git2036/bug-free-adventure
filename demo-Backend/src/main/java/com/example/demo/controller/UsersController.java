@@ -97,14 +97,14 @@ public class UsersController {
     //更新用户信息和权限
     @PutMapping("/{id}/authority")
     public Result updateUserAuthority(@PathVariable("id") int id, @RequestBody Users user) {
-        //取出 username, password, Permissions
+        //取出 username, password, role
         String username = user.getUsername();
         String password = user.getPassword();
-        String Permissions = user.getPermissions();
+        String role = user.getRole();
 
         Users u = usersService.findById(id);
         if (u != null) {
-            usersService.updateUserDataAndPermissions(id,  username,  password,  Permissions);
+            usersService.updateUserDataAndRole(id,  username,  password,  role);
             return Result.success();
         } else {
             return Result.error("用户不存在");
@@ -123,5 +123,7 @@ public class UsersController {
         usersService.addUser(user);
         return Result.success();
     }
+
+
 
 }

@@ -38,4 +38,5 @@ public class RoleServiceImpl implements RoleService {
     public void updateRole(Role role) {
         roleMapper.updateRole(role);
     }
+
 }

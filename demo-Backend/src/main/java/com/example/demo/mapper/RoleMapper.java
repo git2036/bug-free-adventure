@@ -23,4 +23,5 @@ public interface RoleMapper {
 
     @Update("UPDATE roles SET RoleName = #{RoleName}, Permissions = #{Permissions} WHERE RoleID = #{RoleID}")
     void updateRole(Role role);
+
 }

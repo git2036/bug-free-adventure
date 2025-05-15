@@ -114,8 +114,8 @@ const form = ref({
   role: ''
 })
 
-// 角色假数据
-const roles = ref(['管理员', '普通用户', '访客'])
+// 角色数据
+const roles = ref([])
 
 // 分页相关数据
 const currentPage = ref(1)
@@ -145,11 +145,13 @@ const currentPageData = computed(() => {
 // 生命周期钩子
 onMounted(async () => {
   await fetchData()
+  await fetchRoles()
   console.log('tableData:', tableData.value)
   console.log('filteredData:', filteredData.value)
+  console.log('roles:', roles.value)
 })
 
-// 获取数据
+// 获取用户数据
 const fetchData = async () => {
   try {
     const { data } = await axios.get('http://localhost:8080/users/all')
@@ -157,12 +159,27 @@ const fetchData = async () => {
       userId: item.userID,
       username: item.username,
       password: item.password,
-      role: item.role || '普通用户'
+      role: item.role // 去掉默认的 '普通用户'
     }))
     ElMessage.success('数据加载成功');
   } catch (error) {
     console.error('用户数据加载失败:', error)
     ElMessage.error('用户数据加载失败')
+  }
+}
+
+// 获取角色数据
+const fetchRoles = async () => {
+  try {
+    const { data } = await axios.get('http://localhost:8080/role/roles')
+    if (data.code === 200) {
+      roles.value = data.data.map(role => role.roleName)
+    } else {
+      ElMessage.error(data.msg)
+    }
+  } catch (error) {
+    console.error('角色数据加载失败:', error)
+    ElMessage.error('角色数据加载失败')
   }
 }
 

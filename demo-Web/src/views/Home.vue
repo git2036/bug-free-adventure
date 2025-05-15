@@ -14,16 +14,14 @@
               <el-input v-model="user.username" :disabled="!editable" />
             </el-form-item>
             <el-form-item label="密码">
-              <!-- 添加 show-password 属性 -->
               <el-input
-                v-model="user.password"
-                type="password"
-                :disabled="!editable"
-                show-password
+                  v-model="user.password"
+                  type="password"
+                  :disabled="!editable"
+                  show-password
               />
             </el-form-item>
             <el-form-item label="权限">
-              <!-- 修改为显示 Permissions -->
               <el-tag type="success">{{ user.Permissions }}</el-tag>
             </el-form-item>
           </el-form>
@@ -59,23 +57,27 @@
 </template>
 
 <script>
-import { ref, onMounted, computed } from "vue";
-import { useRouter } from "vue-router";
+import {ref, onMounted, computed} from "vue";
+import {useRouter} from "vue-router";
 import axios from "axios";
-import { ElMessage, ElMessageBox } from "element-plus";
+import {ElMessage, ElMessageBox} from "element-plus";
 
-import { User, Document, Edit, Setting } from "@element-plus/icons-vue";
+import {User, Document, Edit, Setting} from "@element-plus/icons-vue";
 import Report from "../components/Report.vue";
 import UserManagement from "../components/UserManagement.vue";
 import ReportManagement from "../components/ReportManagement.vue";
 import DataSourceManagement from "../components/DataSourceManagement.vue";
+import ReportInstanceManagement from "../components/ReportInstanceManagement.vue";
+import PermissionManagement from "../components/RoleManagement.vue"; // 导入权限管理组件
 
 export default {
   components: {
     Report,
     UserManagement,
     ReportManagement,
-    DataSourceManagement
+    DataSourceManagement,
+    ReportInstanceManagement,
+    PermissionManagement // 注册权限管理组件
   },
   setup() {
     const router = useRouter();
@@ -95,8 +97,12 @@ export default {
           return "ReportManagement";
         case "data-source":
           return "DataSourceManagement";
+        case "report-instance":
+          return "ReportInstanceManagement";
+        case "permission-management": // 权限管理组件映射
+          return "PermissionManagement";
         default:
-          return "Profile";
+          return "Report";
       }
     });
 
@@ -104,7 +110,6 @@ export default {
       const userData = localStorage.getItem("user");
       if (userData) {
         user.value = JSON.parse(userData);
-        // 修改为 Permissions
         if (!user.value.Permissions) {
           user.value.Permissions = user.value.username === "admin" ? "Create,Edit,Delete,View" : "View";
         }
@@ -116,12 +121,14 @@ export default {
 
     const generateMenuItems = user => {
       const items = [
-        { name: "report", label: "报表设计", icon: Document },
-        { name: "report-management", label: "报表管理", icon: Document },
-        { name: "data-source", label: "数据源管理", icon: Edit }
+        {name: "report", label: "报表设计", icon: Document},
+        {name: "report-management", label: "报表管理", icon: Document},
+        {name: "data-source", label: "数据源管理", icon: Edit},
+        {name: "report-instance", label: "报表实例管理", icon: Document},
+        {name: "permission-management", label: "角色管理", icon: Setting} // 新增菜单项
       ];
       if (user.username === "admin") {
-        items.push({ name: "role", label: "用户管理", icon: Setting });
+        items.push({name: "role", label: "用户管理", icon: Setting});
       }
       menuItems.value = items;
     };
@@ -138,7 +145,6 @@ export default {
 
     const handleDeleteAccount = async () => {
       try {
-        // 修改为使用 userID
         const response = await axios.delete(`http://localhost:8080/users/${user.value.userID}`);
         if (response.data.code === 200) {
           ElMessage.success("账户注销成功");
@@ -154,13 +160,13 @@ export default {
 
     const confirmDeleteAccount = () => {
       ElMessageBox.confirm(
-        '确定要注销账户吗？此操作不可逆！',
-        '提示',
-        {
-          confirmButtonText: '确定',
-          cancelButtonText: '取消',
-          type: 'warning'
-        }
+          '确定要注销账户吗？此操作不可逆！',
+          '提示',
+          {
+            confirmButtonText: '确定',
+            cancelButtonText: '取消',
+            type: 'warning'
+          }
       ).then(() => {
         handleDeleteAccount();
       }).catch(() => {
@@ -171,7 +177,6 @@ export default {
     const handleSave = async () => {
       console.log('Sending user data:', user.value);
       try {
-        // 修改为使用 userID
         const response = await axios.put(`http://localhost:8080/users/${user.value.userID}`, user.value);
         if (response.data.code === 200) {
           ElMessage.success("用户信息更新成功");
@@ -182,10 +187,6 @@ export default {
       } catch (error) {
         ElMessage.error("网络错误，请稍后重试");
       }
-    };
-
-    const handleEdit = () => {
-      editable.value = true;
     };
 
     return {
@@ -199,15 +200,14 @@ export default {
       handleLogout,
       handleDeleteAccount,
       handleSave,
-      handleEdit,
       confirmDeleteAccount
     };
   }
 };
 </script>
 
-
 <style scoped>
+/* 样式保持不变，无需修改 */
 .home-container {
   display: flex;
   flex-direction: column;
@@ -239,8 +239,7 @@ export default {
 
 .main-content {
   flex: 1;
-  /* 修改为 row，默认就是从左到右布局 */
-  flex-direction: row; 
+  flex-direction: row;
 }
 
 .sidebar {

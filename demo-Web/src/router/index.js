@@ -46,6 +46,18 @@ const routes = [
             requiresAuth: true
         }
     },
+    {
+        path: '/report-instances',
+        name: 'ReportInstanceManagement',
+        component: () => import('../components/ReportInstanceManagement.vue'),
+        meta: {
+            requiresAuth: true
+        }
+    },
+    {   path: '/permission-management',
+        name: 'PermissionManagement',
+        component: () => import('../components/RoleManagement.vue'),
+        meta: { requiresAuth: true, requiresAdmin: true }}, // 权限管理页面
 ];
 
 const router = createRouter({

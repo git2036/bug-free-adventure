@@ -3,11 +3,11 @@
     <!-- 搜索框和新增按钮 -->
     <div class="header">
       <el-input
-        v-model="searchKey"
-        placeholder="搜索用户名称"
-        style="width: 300px; margin-right: 20px"
-        clearable
-        @keyup.enter="handleSearch"
+          v-model="searchKey"
+          placeholder="搜索用户名称"
+          style="width: 300px; margin-right: 20px"
+          clearable
+          @keyup.enter="handleSearch"
       />
       <el-button type="primary" @click="handleAdd">新增用户</el-button>
     </div>
@@ -19,14 +19,9 @@
           {{ row.password.replace(/./g, '*') }}
         </template>
       </el-table-column>
-      <el-table-column label="权限" min-width="250"> <!-- 适当调整列宽 -->
+      <el-table-column label="角色" min-width="250">
         <template #default="{ row }">
-          <el-checkbox-group v-model="row.permissions" class="inline-checkbox-group">
-            <el-checkbox label="Create">Create</el-checkbox>
-            <el-checkbox label="Edit">Edit</el-checkbox>
-            <el-checkbox label="Delete">Delete</el-checkbox>
-            <el-checkbox label="View">View</el-checkbox>
-          </el-checkbox-group>
+          {{ row.role }}
         </template>
       </el-table-column>
       <el-table-column label="操作" width="220">
@@ -39,16 +34,16 @@
     <!-- 分页组件包裹元素 -->
     <div class="pagination-wrapper">
       <el-pagination
-        v-if="filteredData.length > 10"
-        @size-change="handleSizeChange"
-        @current-change="handleCurrentChange"
-        :current-page="currentPage"
-        :page-sizes="[10, 20, 30]"
-        :page-size="pageSize"
-        prev-text="上一页"
-        next-text="下一页"
-        :total="filteredData.length"
-        layout="total, sizes, prev, pager, next, jumper"
+          v-if="filteredData.length > 10"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+          :current-page="currentPage"
+          :page-sizes="[10, 20, 30]"
+          :page-size="pageSize"
+          prev-text="上一页"
+          next-text="下一页"
+          :total="filteredData.length"
+          layout="total, sizes, prev, pager, next, jumper"
       >
         <template #total>
           共 {{ filteredData.length }} 条数据
@@ -57,10 +52,10 @@
           每页显示
           <el-select v-model="pageSize" @change="handleSizeChange">
             <el-option
-              v-for="size in [10, 20, 30]"
-              :key="size"
-              :label="size + ' 条'"
-              :value="size"
+                v-for="size in [10, 20, 30]"
+                :key="size"
+                :label="size + ' 条'"
+                :value="size"
             />
           </el-select>
         </template>
@@ -79,13 +74,15 @@
         <el-form-item label="密码">
           <el-input v-model="form.password" type="password" show-password />
         </el-form-item>
-        <el-form-item label="权限">
-          <el-checkbox-group v-model="form.permissions" class="inline-checkbox-group">
-            <el-checkbox label="Create">Create</el-checkbox>
-            <el-checkbox label="Edit">Edit</el-checkbox>
-            <el-checkbox label="Delete">Delete</el-checkbox>
-            <el-checkbox label="View">View</el-checkbox>
-          </el-checkbox-group>
+        <el-form-item label="角色">
+          <el-select v-model="form.role" placeholder="请选择角色">
+            <el-option
+                v-for="role in roles"
+                :key="role"
+                :label="role"
+                :value="role"
+            />
+          </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -114,8 +111,11 @@ const currentId = ref(null)
 const form = ref({
   username: '',
   password: '',
-  permissions: []
+  role: ''
 })
+
+// 角色假数据
+const roles = ref(['管理员', '普通用户', '访客'])
 
 // 分页相关数据
 const currentPage = ref(1)
@@ -157,8 +157,7 @@ const fetchData = async () => {
       userId: item.userID,
       username: item.username,
       password: item.password,
-      // 将字符串形式的权限转换为数组
-      permissions: item.permissions ? item.permissions.split(',') : [] 
+      role: item.role || '普通用户'
     }))
     ElMessage.success('数据加载成功');
   } catch (error) {
@@ -175,7 +174,7 @@ const handleSearch = () => {
 // 处理新增
 const handleAdd = () => {
   isEditMode.value = false
-  form.value = { username: '', password: '', permissions: [] }
+  form.value = { username: '', password: '', role: '' }
   showDialog.value = true
 }
 
@@ -201,7 +200,7 @@ const handleDelete = async (id) => {
     tableData.value = tableData.value.filter(item => item.userId !== id)
     ElMessage.success('删除成功')
     // 删除成功后刷新数据
-    await fetchData() 
+    await fetchData()
   } catch (error) {
     ElMessage.info('取消删除')
   }
@@ -210,8 +209,7 @@ const handleDelete = async (id) => {
 // 提交表单
 const submitForm = async () => {
   try {
-    // 在提交表单时，将权限数组转换为字符串
-    const formData = { ...form.value, permissions: form.value.permissions.join(',') };
+    const formData = { ...form.value };
     console.log('formData:', formData); // 打印请求数据
 
     if (isEditMode.value) {
@@ -222,7 +220,7 @@ const submitForm = async () => {
         tableData.value[index] = { ...formData, userId: currentId.value };
         ElMessage.success('用户更新成功');
         // 编辑成功后刷新数据
-        await fetchData() 
+        await fetchData()
       } else {
         ElMessage.error(response.data.message);
       }
@@ -233,7 +231,7 @@ const submitForm = async () => {
         tableData.value.push(response.data.data);
         ElMessage.success('用户创建成功');
         // 新增成功后刷新数据
-        await fetchData() 
+        await fetchData()
       } else {
         ElMessage.error(response.data.message);
       }
@@ -269,6 +267,9 @@ const handleJumpPage = () => {
 <style scoped>
 .container {
   padding: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
 }
 .header {
   margin-bottom: 20px;

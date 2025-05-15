@@ -1,5 +1,6 @@
 package com.example.demo.mapper;
 
+import com.example.demo.pojo.Role;
 import com.example.demo.pojo.Users;
 import org.apache.ibatis.annotations.*;
 

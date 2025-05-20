@@ -17,7 +17,3 @@ public class CorsConfig implements WebMvcConfigurer {
                 .maxAge(3600); // 预检请求的缓存时间（秒）
     }
 }
-// 注意：你需要在 application.properties 中添加以下配置：
-//# 允许跨域请求
-//spring.web.cors.allowed-origins=*
-//spring.web.cors.allowed-methods=*

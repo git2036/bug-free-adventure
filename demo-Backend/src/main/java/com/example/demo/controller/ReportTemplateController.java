@@ -11,6 +11,8 @@ import java.util.List;
 @RestController
 @RequestMapping("/reporttemplates")
 public class ReportTemplateController {
+    //报表模板相关的控制器
+
 
     // 注入ReportTemplateService接口的实现类
     private final ReportTemplateService reportTemplateService;

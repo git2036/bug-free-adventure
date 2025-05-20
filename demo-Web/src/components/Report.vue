@@ -49,8 +49,10 @@
         <!-- 设计容器 -->
         <div class="design-container" style="height: calc(100vh - 220px); overflow: auto">
           <el-tabs v-model="activeTab" type="card" style="height: 100%">
+
             <!-- 设计模式 -->
             <el-tab-pane label="设计模式" name="design">
+              <!-- 设计模式内容 -->
               <el-table
                   :data="reportLayout"
                   border
@@ -132,6 +134,32 @@
                     stripe
                     style="width: 100%; flex: 1;"
                 >
+                  <!-- 筛选行（位于字段行下方，数据上方） -->
+                  <template #header>
+                    <div class="filter-row" style="padding: 12px 20px; background: #f5f7fa; border-bottom: 1px solid #ebeef5; display: flex; align-items: center; gap: 10px;">
+                      <!-- 字段筛选输入框 -->
+                      <div v-for="field in queryResult.fields" :key="field.columnName" style="flex: 1; max-width: 200px;">
+                        <el-input
+                            v-model="filters[field.columnName]"
+                            placeholder="筛选 {{ field.customLabel || field.columnName }}"
+                            style="width: 100%;"
+                        />
+                      </div>
+                      <!-- 操作按钮 -->
+                      <div style="flex-shrink: 0;">
+                        <el-button type="primary" @click="handleFilter">筛选</el-button>
+                        <el-button type="primary" @click="addEmptyRow">添加</el-button>
+                      </div>
+                    </div>
+                  </template>
+
+                  <!-- 自增ID列（保留，但编辑弹窗不显示） -->
+                  <el-table-column label="ID" width="60">
+                    <template #default="{ $index }">
+                      {{ $index + 1 }}
+                    </template>
+                  </el-table-column>
+
                   <el-table-column
                       v-for="(field, index) in queryResult.fields"
                       :key="index"
@@ -140,41 +168,49 @@
                       :width="field.columnSize || 150"
                   >
                     <template #default="{ row }">
-                      <template v-if="field.columnName !== primaryKeyField">
-                        <el-input v-model="row[field.columnName]"/>
+                      <template v-if="field.columnName === primaryKeyField">
+                        {{ row[field.columnName] }}
                       </template>
                       <template v-else>
-                        {{ row[field.columnName] }}
+                        <el-input
+                            v-model="row[field.columnName]"
+                            style="width: 100%; max-width: 180px;"
+                        />
                       </template>
                     </template>
                   </el-table-column>
-                  <el-table-column label="操作" width="150" fixed="right">
-                    <template #default="{ row }">
-                      <el-button size="small" @click="handleEditData(row)">编辑</el-button>
-                      <el-button size="small" type="danger" @click="handleDeleteData(row)">删除</el-button>
+
+                  <el-table-column label="操作" width="180" fixed="right">
+                    <template #default="{ row, $index }">
+                      <el-button size="small" @click="handleEditData(row, $index)">编辑</el-button>
+                      <el-button size="small" type="danger" @click="handleDeleteData($index)">删除</el-button>
                     </template>
                   </el-table-column>
                 </el-table>
 
-                <!-- 编辑对话框 -->
+                <!-- 编辑对话框（移除ID字段） -->
                 <el-dialog v-model="editDataDialogVisible" title="编辑数据">
                   <el-form :model="currentEditData">
+                    <!-- 过滤掉ID字段 -->
                     <el-form-item
-                        v-for="col in queryResult.fields"
+                        v-for="col in queryResult.fields.filter(col => col.columnName !== 'id')"
                         :key="col.columnName"
                         :label="col.customLabel || col.columnName"
                         :label-width="col.columnSize ? `${col.columnSize}px` : '120px'"
                     >
-                      <el-input v-model="currentEditData[col.columnName]"/>
+                      <el-input v-model="currentEditData[col.columnName]" />
                     </el-form-item>
                   </el-form>
                   <template #footer>
-                    <el-button @click="editDataDialogVisible = false">取消</el-button>
-                    <el-button type="primary" @click="confirmEditData">确认</el-button>
+                    <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                      <el-button @click="editDataDialogVisible = false">取消</el-button>
+                      <el-button type="primary" @click="saveNewRow">保存</el-button>
+                    </div>
                   </template>
                 </el-dialog>
               </div>
             </el-tab-pane>
+
           </el-tabs>
         </div>
       </div>
@@ -308,13 +344,21 @@ const currentEditIndex = ref(-1)
 const dataSourceName = ref('')
 const targetTable = ref('')
 const primaryKeyField = ref('')
-const editData = ref([])
+const editData = ref([
+  { id: 1, name: 'John', age: 28, email: 'john@example.com' },
+  { id: 2, name: 'Alice', age: 32, email: 'alice@example.com' }
+])
 const newDataRow = ref({})
+const reportTemplateId = ref(null)
+
+// 筛选条件
+const filters = ref({})
+const filteredEditData = ref(editData.value) // 改为响应式引用
 
 // 用户信息
 const userInfo = ref({
   userID: null,
-  username: '',
+  username: 'admin',
   password: '',
   permissions: ''
 })
@@ -348,7 +392,6 @@ const previewColumns = computed(() => {
   }))
 })
 
-// 计算属性 - 分页数据
 const pagedData = computed(() => {
   const start = (pagination.value.currentPage - 1) * pagination.value.pageSize
   const end = start + pagination.value.pageSize
@@ -365,6 +408,20 @@ const previewData = computed(() => {
     }, {})
   })
 })
+
+// 筛选处理函数
+const handleFilter = () => {
+  if (Object.keys(filters.value).length === 0) {
+    filteredEditData.value = editData.value
+  } else {
+    filteredEditData.value = editData.value.filter(row => {
+      return Object.entries(filters.value).every(([key, value]) => {
+        if (!value) return true
+        return String(row[key]).toLowerCase().includes(value.toLowerCase())
+      })
+    })
+  }
+}
 
 // 初始化布局
 const initLayout = () => {
@@ -396,27 +453,65 @@ const fetchDataSources = async () => {
   }
 }
 
+const validateSQL = (sql) => {
+  if (!sql) return false
+
+  // 标准化处理
+  const standardizedSQL = sql
+      .toLowerCase()
+      .replace(/[\n\r]/g, ' ')  // 替换换行符
+      .replace(/\s+/g, ' ')     // 合并连续空格
+      .replace(/;\s*$/, '')     // 去除末尾分号
+      .trim()
+
+  // 基础结构校验
+  const hasSelect = standardizedSQL.startsWith('select')
+  const hasFrom = standardizedSQL.includes(' from ')
+  const fromPosition = standardizedSQL.indexOf(' from ')
+
+  // 校验必要结构
+  if (!hasSelect || !hasFrom) return false
+
+  // 校验FROM后内容
+  const afterFrom = standardizedSQL.slice(fromPosition + 6).trim()
+  if (!afterFrom || afterFrom.split(' ')[0] === '') return false
+
+  // 校验字段部分（允许*）
+  const selectPart = standardizedSQL.slice(6, fromPosition).trim()
+  if (!selectPart || selectPart === '') return false
+
+  return true
+}
+
 // 执行SQL查询
 const executeQuery = async () => {
+  // 校验数据源选择
   if (!selectedDataSource.value) {
-    ElMessage.error('请选择数据源')
+    ElMessage.error('请先选择数据源')
     return
   }
 
-  const selectedSource = dataSources.value.find(
-      source => source.dataSourceID === selectedDataSource.value
-  )
-  if (selectedSource) {
-    selectedDataSourceName.value = selectedSource.dataSourceName
-    dataSourceName.value = selectedSource.dataSourceName
+  // 执行SQL校验
+  if (!validateSQL(sqlQuery.value)) {
+    ElMessage.error({
+      message: 'sql语句输入错误',
+      duration: 5000
+    })
+    return
   }
 
-  const loading = ElLoading.service({ fullscreen: true })
+  const loading = ElLoading.service({
+    fullscreen: true,
+    text: '正在执行查询，请稍候...',
+    background: 'rgba(0, 0, 0, 0.7)'
+  })
+
   try {
     const response = await axios.post('http://localhost:8080/queries/executeQuery', {
       dataSourceId: selectedDataSource.value,
       query: sqlQuery.value
     })
+
     if (response.data.code === 200) {
       queryResult.value = {
         fields: response.data.data.columnsInfo.map(f => ({
@@ -430,18 +525,34 @@ const executeQuery = async () => {
       }
       targetTable.value = extractTableName(sqlQuery.value)
       editData.value = queryResult.value.data.rows
+      handleFilter()
+      ElMessage.success('查询执行成功')
+    } else {
+      ElMessage.error(`查询失败：${response.data.msg}`)
     }
   } catch (error) {
-    ElMessage.error('SQL执行失败')
+    const errorMessage = error.response?.data?.message ||
+        error.message ||
+        '未知错误'
+    ElMessage.error(`请求失败：${errorMessage}`)
   } finally {
     loading.close()
   }
 }
 
-// 提取表名
+// 表名提取方法优化
 const extractTableName = (sql) => {
-  const matches = sql.match(/FROM\s+([^\s,;]+)/i)
-  return matches ? matches[1] : ''
+  const fromRegex = /from\s+([^({\s]+)/i
+  const matches = sql.match(fromRegex)
+  if (!matches) return ''
+
+  let tableName = matches[1]
+  // 处理可能存在的模式前缀
+  if (tableName.includes('.')) {
+    tableName = tableName.split('.').pop()
+  }
+  // 去除可能存在的特殊字符
+  return tableName.replace(/[`"'[\]]/g, '')
 }
 
 // 完成字段选择
@@ -465,10 +576,9 @@ const saveReport = async () => {
     })
   })
 
-  // 新增主键校验逻辑
   if (!primaryKeyField.value) {
-    ElMessage.error('请勾选一个主键字段');
-    return;
+    ElMessage.error('请勾选一个主键字段')
+    return
   }
 
   const uniqueFields = [...new Map(fieldsToSave.map(item => [item.prop, item])).values()]
@@ -489,6 +599,7 @@ const saveReport = async () => {
     const response = await axios.post('http://localhost:8080/reporttemplates/save', reportTemplate)
     if (response.data.code === 200) {
       ElMessage.success('报表保存成功')
+      reportTemplateId.value = response.data.data.templateId
       showSaveDialog.value = false
     } else {
       ElMessage.error('保存失败: ' + response.data.msg)
@@ -514,60 +625,55 @@ const handleQuery = async () => {
   }
 }
 
-const handleAdd = async () => {
-  try {
-    await axios.post('/data-edition', newDataRow.value, {
-      headers: {
-        dataSourceName: dataSourceName.value,
-        targetTable: targetTable.value,
-        primaryKey: primaryKeyField.value
-      }
-    })
-    ElMessage.success('添加成功')
-    newDataRow.value = {}
-    await handleQuery()
-  } catch (error) {
-    ElMessage.error('添加失败: ' + error.message)
-  }
-}
-
-const handleEditData = (row) => {
+const handleEditData = (row, index) => {
   currentEditData.value = { ...row }
+  currentEditIndex.value = index
   editDataDialogVisible.value = true
 }
 
 const confirmEditData = async () => {
-  try {
-    await axios.put('/data-edition', currentEditData.value, {
-      headers: {
-        dataSourceName: dataSourceName.value,
-        targetTable: targetTable.value,
-        primaryKey: primaryKeyField.value
+  if (currentEditIndex.value !== -1) {
+    const reportDataItem = {
+      templateId: reportTemplateId.value,
+      data: currentEditData.value
+    }
+
+    try {
+      const response = await axios.put('http://localhost:8080/reportdata/update', reportDataItem)
+      if (response.data.code === 200) {
+        editData.value[currentEditIndex.value] = { ...currentEditData.value }
+        editDataDialogVisible.value = false
+        currentEditIndex.value = -1
+        ElMessage.success('编辑成功')
+        handleFilter()
+      } else {
+        ElMessage.error('更新失败: ' + response.data.msg)
       }
-    })
-    ElMessage.success('更新成功')
-    editDataDialogVisible.value = false
-    await handleQuery()
-  } catch (error) {
-    ElMessage.error('更新失败: ' + error.message)
+    } catch (error) {
+      ElMessage.error('更新失败: ' + error.message)
+    }
   }
 }
 
-const handleDeleteData = async (row) => {
-  try {
-    const primaryKeyValue = row[primaryKeyField.value]
-    await axios.delete(`/data-edition/${primaryKeyValue}`, {
-      headers: {
-        dataSourceName: dataSourceName.value,
-        targetTable: targetTable.value,
-        primaryKey: primaryKeyField.value
-      }
-    })
-    ElMessage.success('删除成功')
-    await handleQuery()
-  } catch (error) {
-    ElMessage.error('删除失败: ' + error.message)
-  }
+const handleDeleteData = async (index) => {
+  ElMessageBox.confirm('确定删除此记录？')
+      .then(async () => {
+        const condition = editData.value[index]
+        try {
+          const response = await axios.delete(`http://localhost:8080/reportdata/delete/${reportTemplateId.value}`, {
+            data: condition
+          })
+          if (response.data.code === 200) {
+            editData.value.splice(index, 1)
+            ElMessage.success('删除成功')
+            handleFilter()
+          } else {
+            ElMessage.error('删除失败: ' + response.data.msg)
+          }
+        } catch (error) {
+          ElMessage.error('删除失败: ' + error.message)
+        }
+      })
 }
 
 // 生成预览数据
@@ -614,6 +720,45 @@ const handleLayoutChange = () => {
   }
 }
 
+// 新增空白行
+const addEmptyRow = () => {
+  newDataRow.value = Object.fromEntries(
+      queryResult.value.fields
+          .filter(f => f.columnName !== primaryKeyField.value)
+          .map(f => [f.columnName, ''])
+  )
+  currentEditData.value = { ...newDataRow.value }
+  currentEditIndex.value = -1
+  editDataDialogVisible.value = true
+}
+
+// 新增保存方法
+const saveNewRow = async () => {
+  if (Object.keys(currentEditData.value).length === 0) {
+    ElMessage.warning('请先填写数据')
+    return
+  }
+
+  const reportDataItem = {
+    templateId: reportTemplateId.value,
+    data: currentEditData.value
+  }
+
+  try {
+    const response = await axios.post('http://localhost:8080/reportdata/add', reportDataItem)
+    if (response.data.code === 200) {
+      editData.value.unshift({ ...currentEditData.value })
+      editDataDialogVisible.value = false
+      ElMessage.success('添加成功')
+      handleFilter()
+    } else {
+      ElMessage.error('添加失败: ' + response.data.msg)
+    }
+  } catch (error) {
+    ElMessage.error('添加失败: ' + error.message)
+  }
+}
+
 // 生命周期
 onMounted(() => {
   initLayout()
@@ -621,10 +766,9 @@ onMounted(() => {
 })
 
 // 监听器
-watch(activeTab, (newTab) => {
-  if (newTab === 'preview') {
-    generatePreviewData()
-  }
+watch(queryResult, () => {
+  editData.value = queryResult.value.data.rows.map(row => ({ ...row }))
+  handleFilter() // 数据源变化时重新筛选
 })
 </script>
 
@@ -766,18 +910,13 @@ watch(activeTab, (newTab) => {
   box-sizing: border-box;
 }
 
-
-/* 移除原有复杂选择器，改用以下样式 */
 :deep(.save-form-dialog) {
   width: 40% !important;
-  max-width: 500px !important; /* 根据需求调整最大宽度 */
+  max-width: 500px !important;
 }
 
-
 :deep(.el-dialog__header) {
-  //background: #f5f7fa;
   border-bottom: 1px solid #ebeef5;
-  //padding: 16px 20px;
 }
 
 :deep(.el-dialog__title) {
@@ -786,17 +925,15 @@ watch(activeTab, (newTab) => {
 }
 
 :deep(.el-dialog__body) {
-  //padding: 20px;
-
+  padding: 20px;
 }
 
 :deep(.el-dialog__footer) {
-  //background: #f5f7fa;
   border-top: 1px solid #ebeef5;
-  //padding: 16px 20px;
-  //display: flex;
-  //justify-content: flex-end;
-  //gap: 10px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 20px;
 }
 
 :deep(.el-form-item) {
@@ -821,5 +958,32 @@ watch(activeTab, (newTab) => {
   display: flex;
   justify-content: center;
   gap: 10px;
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  background: #f5f7fa;
+  border-bottom: 1px solid #ebeef5;
+  margin-bottom: 8px;
+}
+
+.add-row {
+  display: flex;
+  justify-content: flex-start;
+  padding: 12px 20px;
+  background: #f5f7fa;
+  border-top: 1px solid #ebeef5;
+}
+
+.el-input {
+  width: 100% !important;
+  max-width: 180px;
+}
+
+.el-table-column--fixed-right {
+  background-color: #f8f9fa;
 }
 </style>

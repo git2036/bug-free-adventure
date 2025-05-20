@@ -11,6 +11,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/reportinstances")
 public class ReportInstancesController {
+    //报表实例相关的控制器
 
     @Autowired
     private ReportInstancesService reportInstancesService;

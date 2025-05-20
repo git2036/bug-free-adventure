@@ -11,6 +11,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/role")
 public class RoleController {
+    //角色相关的控制器
 
     @Autowired
     private RoleService roleService;

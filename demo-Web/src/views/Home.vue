@@ -21,9 +21,6 @@
                   show-password
               />
             </el-form-item>
-            <el-form-item label="权限">
-              <el-tag type="success">{{ user.Permissions }}</el-tag>
-            </el-form-item>
           </el-form>
           <template #footer>
             <el-button v-if="!editable" type="primary" @click="editable = true">编辑</el-button>

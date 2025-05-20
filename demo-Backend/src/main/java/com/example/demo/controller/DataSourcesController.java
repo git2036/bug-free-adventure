@@ -72,15 +72,15 @@ public class DataSourcesController {
         String dataSourceUsername = dataSourceRequst.get("dataSourceUsername");
         String dataSourcePassword = dataSourceRequst.get("dataSourcePassword");
 
-        DataSources dataSources = dataSourcesService.findByDataSourceName(dataSourceName);
+//        DataSources dataSources = dataSourcesService.findByDataSourceName(dataSourceName);
 
-        if (dataSources == null) {
+//        if (dataSources == null) {
             dataSourcesService.updateDataSource(id, dataSourceName, DataSourceType, ConnectionInfo, dataSourceUsername,
                     dataSourcePassword);
             return Result.success();
-        } else {
-            return Result.error("用户名已存在");
-        }
+//        } else {
+//            return Result.error("用户名已存在");
+//        }
     }
 
     // 测试数据源链接

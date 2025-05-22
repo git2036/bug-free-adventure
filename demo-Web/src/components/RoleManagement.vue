@@ -20,7 +20,7 @@
     </div>
 
     <el-table :data="currentPageRoles" border stripe style="width: 100%">
-      <el-table-column prop="roleID" label="角色ID" width="120" />
+<!--      <el-table-column prop="roleID" label="角色ID" width="120" />-->
       <el-table-column prop="roleName" label="角色名称" width="180" />
       <el-table-column label="角色权限" min-width="350">
         <template #default="{ row }">
@@ -34,7 +34,7 @@
           </el-checkbox-group>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="200">
+      <el-table-column label="操作" width="220">
         <template #default="{ row }">
           <div class="button-group">
             <el-button size="small" @click="openEditDialog(row)" :disabled="row.roleID === 1">
@@ -53,17 +53,39 @@
       </el-table-column>
     </el-table>
 
-    <!-- 分页组件（居中显示） -->
-    <div class="pagination-container" v-if="total > 10">
+    <!-- 分页组件包裹元素 -->
+    <div class="pagination-wrapper">
       <el-pagination
+          v-if="filteredRoles.length > 10"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
           :current-page="currentPage"
+          :page-sizes="[10, 20, 30]"
           :page-size="pageSize"
-          :total="total"
-          @size-change="handlePageSizeChange"
-          @current-change="handlePageChange"
-          layout="prev, pager, next"
-          class="centered-pagination"
-      />
+          prev-text="上一页"
+          next-text="下一页"
+          :total="filteredRoles.length"
+          layout="total, sizes, prev, pager, next, jumper"
+      >
+        <template #total>
+          共 {{ filteredRoles.length }} 条数据
+        </template>
+        <template #sizes>
+          每页显示
+          <el-select v-model="pageSize" @change="handleSizeChange">
+            <el-option
+                v-for="size in [10, 20, 30]"
+                :key="size"
+                :label="size + ' 条'"
+                :value="size"
+            />
+          </el-select>
+        </template>
+        <template #jumper>
+          跳转到
+          <el-input v-model="jumpPage" @keyup.enter="handleJumpPage" size="small" style="width: 50px" /> 页
+        </template>
+      </el-pagination>
     </div>
 
     <!-- 编辑角色弹窗 -->
@@ -147,7 +169,7 @@ const roles = ref([]);
 const roleSearchQuery = ref('');
 const currentPage = ref(1);
 const pageSize = ref(10);
-const total = ref(0);
+const jumpPage = ref(1);
 
 // 计算属性：过滤并分页数据
 const filteredRoles = computed(() => {
@@ -211,27 +233,33 @@ const fetchRoles = async () => {
         ...item,
         permissions: item.permissions ? item.permissions.split(',') : [],
       }));
-      total.value = data.data.length; // 更新总数据量
     } else {
       ElMessage.error(data.msg || '角色数据加载失败');
       roles.value = [];
-      total.value = 0;
     }
   } catch (error) {
     ElMessage.error('网络错误，请稍后重试');
     roles.value = [];
-    total.value = 0;
   }
 };
 
 // 分页相关方法
-const handlePageSizeChange = (newSize) => {
+const handleSizeChange = (newSize) => {
   pageSize.value = newSize;
-  currentPage.value = 1; // 切换页大小后回到第一页
+  currentPage.value = 1; // 改变每页数量后回到第一页
 };
 
-const handlePageChange = (newPage) => {
+const handleCurrentChange = (newPage) => {
   currentPage.value = newPage;
+};
+
+const handleJumpPage = () => {
+  const totalPages = Math.ceil(filteredRoles.value.length / pageSize.value);
+  if (jumpPage.value >= 1 && jumpPage.value <= totalPages) {
+    currentPage.value = jumpPage.value;
+  } else {
+    ElMessage.error('输入的页码无效');
+  }
 };
 
 // 打开编辑弹窗
@@ -394,25 +422,25 @@ const handleRoleSearch = () => {
 }
 
 /* 分页组件样式 */
-.pagination-container {
-  display: flex;
-  justify-content: center; /* 居中对齐 */
+.pagination-wrapper {
   margin-top: 20px;
-}
-
-.centered-pagination {
-  /* 可选：调整分页组件内边距 */
-  padding: 10px;
+  display: flex;
+  justify-content: center;
 }
 
 .inline-checkbox-group {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
 }
 
 .inline-checkbox-group .el-checkbox {
   margin-right: 10px; /* 可根据需要调整复选框之间的间距 */
-  margin-bottom: 5px;
+}
+
+/* 让表格自适应内容，消除右边空白 */
+.el-table__header-wrapper,
+.el-table__body-wrapper {
+  width: auto !important;
 }
 </style>

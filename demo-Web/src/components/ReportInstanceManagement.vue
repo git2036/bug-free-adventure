@@ -33,7 +33,7 @@
       />
       <el-table-column
           prop="createdBy"
-          label="创建者"
+          label="创建者ID"
           min-width="150"
           flex="1"
       />
@@ -58,17 +58,39 @@
       </el-table-column>
     </el-table>
 
-    <!-- 分页组件 -->
-    <div class="pagination">
+    <!-- 分页组件包裹元素 -->
+    <div class="pagination-wrapper">
       <el-pagination
-          v-if="total > 10"
-          :current-page="currentPage"
-          :page-size="pageSize"
-          :total="total"
+          v-if="filteredData.length > 10"
           @size-change="handleSizeChange"
           @current-change="handleCurrentChange"
+          :current-page="currentPage"
+          :page-sizes="[10, 20, 30]"
+          :page-size="pageSize"
+          prev-text="上一页"
+          next-text="下一页"
+          :total="filteredData.length"
           layout="total, sizes, prev, pager, next, jumper"
-      />
+      >
+        <template #total>
+          共 {{ filteredData.length }} 条数据
+        </template>
+        <template #sizes>
+          每页显示
+          <el-select v-model="pageSize" @change="handleSizeChange">
+            <el-option
+                v-for="size in [10, 20, 30]"
+                :key="size"
+                :label="size + ' 条'"
+                :value="size"
+            />
+          </el-select>
+        </template>
+        <template #jumper>
+          跳转到
+          <el-input v-model="jumpPage" @keyup.enter="handleJumpPage" size="small" style="width: 50px" /> 页
+        </template>
+      </el-pagination>
     </div>
 
     <!-- 编辑弹窗 -->
@@ -123,7 +145,7 @@ const tableData = ref([]);
 const searchQuery = ref('');
 const currentPage = ref(1);
 const pageSize = ref(10);
-const total = ref(0);
+const jumpPage = ref(1);
 
 // 编辑弹窗数据
 const editDialogVisible = ref(false);
@@ -166,7 +188,6 @@ const fetchInstances = async () => {
     const {data} = await axios.get('http://localhost:8080/reportinstances/getAll');
     if (data.code === 200) {
       tableData.value = data.data;
-      total.value = data.data.length;
     } else {
       ElMessage.error(data.msg || '数据加载失败');
     }
@@ -221,12 +242,11 @@ const resetForm = () => {
 
 // 搜索处理
 const handleSearch = () => {
-  currentPage.value = 1;
+  currentPage.value = 1; // 搜索后回到第一页
 };
 
 // 删除实例
 const deleteInstance = async (row) => {
-
   await ElMessageBox.confirm('确定删除该报表实例吗？', '提示', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
@@ -244,6 +264,25 @@ const deleteInstance = async (row) => {
       ElMessage.error('删除失败');
     }
   });
+};
+
+// 分页相关方法
+const handleSizeChange = (newSize) => {
+  pageSize.value = newSize;
+  currentPage.value = 1; // 改变每页数量后回到第一页
+};
+
+const handleCurrentChange = (newPage) => {
+  currentPage.value = newPage;
+};
+
+const handleJumpPage = () => {
+  const totalPages = Math.ceil(filteredData.value.length / pageSize.value);
+  if (jumpPage.value >= 1 && jumpPage.value <= totalPages) {
+    currentPage.value = jumpPage.value;
+  } else {
+    ElMessage.error('输入的页码无效');
+  }
 };
 </script>
 
@@ -274,11 +313,29 @@ const deleteInstance = async (row) => {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.pagination {
+
+.pagination-wrapper {
   margin-top: 20px;
-  justify-content: center;
   display: flex;
+  justify-content: center;
 }
+
+.inline-checkbox-group {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+.inline-checkbox-group .el-checkbox {
+  margin-right: 10px; /* 可根据需要调整复选框之间的间距 */
+}
+
+/* 让表格自适应内容，消除右边空白 */
+.el-table__header-wrapper,
+.el-table__body-wrapper {
+  width: auto !important;
+}
+
 .active {
   color: #409eff;
   font-weight: 500;
@@ -286,12 +343,6 @@ const deleteInstance = async (row) => {
 
 .inactive {
   color: #666;
-}
-
-.el-pagination {
-  margin-top: 20px;
-  justify-content: flex-end;
-  display: flex;
 }
 
 .el-form-item {
